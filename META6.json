@@ -1,0 +1,42 @@
+{
+  "name": "LibXML::Class",
+  "description": "Serialize/de-serialize XML into Raku data structures",
+  "version": "0.0.1",
+  "authors": [
+    "Vadim Belman"
+  ],
+  "auth": "zef:vrurg",
+  "depends": [
+    "LibXML:ver<0.10.0>:auth<zef:dwarring>",
+    "AttrX::Mooish:auth<zef:vrurg>:api<1.0.0+>:ver<1.0.2+>",
+    "Hash::Merge:ver<2.0.0>:auth<github:scriptkitties>:api<2>"
+  ],
+  "build-depends": [],
+  "test-depends": [
+    "Test::Async:ver<0.0.17+>:auth<zef:vrurg>"
+  ],
+  "provides": {
+    "LibXML::Class": "lib/LibXML/Class.rakumod",
+    "LibXML::Class::Attr": "lib/LibXML/Class/Attr.rakumod",
+    "LibXML::Class::Attr::XMLish": "lib/LibXML/Class/Attr/XMLish.rakumod",
+    "LibXML::Class::Config": "lib/LibXML/Class/Config.rakumod",
+    "LibXML::Class::Document": "lib/LibXML/Class/Document.rakumod",
+    "LibXML::Class::HOW::AttrContainer": "lib/LibXML/Class/HOW/AttrContainer.rakumod",
+    "LibXML::Class::HOW::Configurable": "lib/LibXML/Class/HOW/Configurable.rakumod",
+    "LibXML::Class::HOW::Element": "lib/LibXML/Class/HOW/Element.rakumod",
+    "LibXML::Class::HOW::ElementRole": "lib/LibXML/Class/HOW/ElementRole.rakumod",
+    "LibXML::Class::HOW::ElementSeq": "lib/LibXML/Class/HOW/ElementSeq.rakumod",
+    "LibXML::Class::HOW::Explicit": "lib/LibXML/Class/HOW/Explicit.rakumod",
+    "LibXML::Class::HOW::Imply": "lib/LibXML/Class/HOW/Imply.rakumod",
+    "LibXML::Class::NS": "lib/LibXML/Class/NS.rakumod",
+    "LibXML::Class::Node": "lib/LibXML/Class/Node.rakumod",
+    "LibXML::Class::Types": "lib/LibXML/Class/Types.rakumod",
+    "LibXML::Class::Utils": "lib/LibXML/Class/Utils.rakumod",
+    "LibXML::Class::X": "lib/LibXML/Class/X.rakumod",
+    "LibXML::Class::XML": "lib/LibXML/Class/XML.rakumod"
+  },
+  "resources": [],
+  "license": "Artistic-2.0",
+  "source-url": "Write me!",
+  "raku": "6.*"
+}

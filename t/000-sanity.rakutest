@@ -1,0 +1,5 @@
+use v6.d;
+use LibXML::Class;
+use Test;
+
+done-testing;

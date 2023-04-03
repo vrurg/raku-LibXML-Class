@@ -1,0 +1,52 @@
+use v6.e.PREVIEW;
+use Test::Async;
+use LibXML::Class;
+use LibXML::Class::Config;
+
+role Tag1 is xml-element {
+    has Str $.ref is xml-attribute;
+    has Rat $.amount is xml-element;
+}
+
+class BaseAttrs is xml-element {
+    has Str $.base1;
+    has Num $.base2;
+}
+
+class Fubar { }
+class Bar {
+    has Fubar @.bar;
+}
+
+role R is BaseAttrs does Tag1 {
+    has Str @.misc;
+}
+
+role R[::T] is BaseAttrs { }
+
+class Baz is Bar {
+    has Date $.dt;
+}
+
+class C1 is xml-element { }
+
+class Foo is xml-element does R {
+    has Int $.foo;
+    has Baz $.bazz;
+}
+
+note Foo.^name, " of ", Foo.HOW.^name;
+
+for Foo.^xml-attrs(:!local).values -> $adesc {
+    note $adesc.name, " => ", $adesc.xml-name, " of ", $adesc.^name;
+    note "    ", $adesc.attr.WHICH, |(" <-- ", .WHICH with $adesc.attr.original);
+}
+
+my \XMLBaz = LibXML::Class::Config.xmlize(Baz, LibXML::Class::XMLRepresentation);
+
+note "--- XMLized Baz:";
+for XMLBaz.^xml-attrs(:!local).values -> $adesc {
+    note $adesc.name, " => ", $adesc.xml-name, " of ", $adesc.^name;
+}
+
+done-testing;

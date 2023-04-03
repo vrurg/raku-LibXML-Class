@@ -1,0 +1,49 @@
+use v6.e.PREVIEW;
+use Test::Async;
+
+use LibXML::Class;
+
+class SomeData {
+    has Str $.id;
+    has @.elems = 1,2,3,4;
+}
+
+role XR is xml-element(:ns(:bar, bar => "https://foo.ns.org/some/bar", :baz<https://foo.ns.org/some/baz>)) {
+    has Num $.size;
+}
+
+role XR2 is xml-element(:ns(:baz, fubar => "http://foo.ns.org/some/fubar")) {
+    has $.any;
+    has $.data is xml-element(:ns(:baz));
+}
+
+class Foo is xml-element("foo-elem", :implicit, :ns(:foo, foo => "http://foo.ns.org/some/bar")) does XR does XR2 {
+    has Str $.a is xml-attribute("foo-a", :ns(:fubar)) = "fooo";
+    has Int $.num;
+    has Bool $.flag;
+    has @.list is xml-element("item", :ns(:baz), :container<MyList>) = "A", e, 42;
+    has %.assoc = :a<A>, :b<bb>, :c<Si!>;
+}
+
+for Foo.^xml-attrs(:local).values -> $attr {
+    note $attr.name, " ", $attr.^name;
+}
+
+note Foo.HOW.xml-default-ns;
+note Foo.HOW.xml-default-ns-pfx, " // ", Foo.new.xml-default-ns-pfx;
+note Foo.HOW.xml-namespaces, "\n", Foo.new.xml-namespaces.join("\n").indent(2);
+
+note Foo.^mro(:roles).map(*.^name);
+
+note "default name is ", Foo.^xml-name;
+
+my $foo = Foo.new(:size(12.345e2), :any(pi), :a<fubariki!>, :num(122), :data(SomeData.new(:id<id42>)));
+
+say $foo.to-xml.Str: :format;
+
+note $foo.data.WHICH;
+
+#class XS is xml-element(:sequence( :bar(Bar, :attr<value>), :baz(Baz) )) {
+#}
+
+done-testing;

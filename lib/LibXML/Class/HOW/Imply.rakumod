@@ -11,8 +11,6 @@ method xml-attrs {...}
 method xml-imply-attributes(Mu \obj, Bool:D :$local = True --> Nil) {
     die "It's a bad idea to implicitify attributes of an explicit type " ~ obj.^name if self.xml-is-explicit(obj);
 
-    note "*** IMPLYING ATTRIBUTES ", ($local ?? "locally" !! "deeply");
-
     my @attrs;
     if $local {
         @attrs = self.attributes(obj, :local);
@@ -41,7 +39,6 @@ method xml-imply-attributes(Mu \obj, Bool:D :$local = True --> Nil) {
             && !self.xml-has-attr(obj, .name, :local)
             && !(.name.substr(2,4) eq 'xml-') })
     -> Attribute:D $attr {
-        note "    = implying attribute ", $attr.name, " from ", $attr.package.^name, " of ", $attr.type.^name;
         LibXML::Class::Attr::mark-attr-xml( $attr, as-xml-element => !is-basic-type($attr.type) );
     }
 }

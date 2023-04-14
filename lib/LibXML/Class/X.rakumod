@@ -197,6 +197,19 @@ my class Deserialize::NoNSMap does Deserialize {
     }
 }
 
+role Serialize does Base {}
+
+my class Serialize::Impossible does Serialize {
+    has Mu $.what is required;
+    has Str:D $.why is required;
+
+    method message {
+        "Cannot serialize " ~
+            ($.what.defined ?? "an instance of " !! "a type object ") ~ $.what.^name
+            ~ ": " ~ $.why
+    }
+}
+
 role Config does Base {}
 
 my class Config::ImmutableGlobal does Config {
@@ -244,8 +257,17 @@ my class Config::NSMismatch does Config {
     }
 }
 
+my class Config::TypeMapAmbigous does Config {
+    has Mu:U $.type is built(:bind) is required;
+    has @.variants is required;
+    method message {
+        "Type '" ~ $.type.^name ~ "' cannot be unambiously mapped into an XML element; possible variants:"
+        ~ @.variants.map({ "\n  <" ~ .xml-name ~ "> in namespace '" ~ .ns ~ "'" }).join
+    }
+}
+
 role Sequence does Base {
-    has Mu:U $.type is required;
+    has Mu $.type is built(:bind) is required;
 }
 
 my class Sequence::NoChildTypes does Sequence {
@@ -254,17 +276,28 @@ my class Sequence::NoChildTypes does Sequence {
     }
 }
 
-my class Sequence::TagType does Sequence {
-    has Mu $.tag is required;
+my class Sequence::ChildType does Sequence {
+    has Mu $.child-decl;
+
     method message {
-        "Object of type " ~ $!tag.^name ~ " cannot be used as a sequence tag name"
+        "Object of type "
+            ~ $.child-decl.^name
+            ~ " cannot be used as a child element declaration for sequnce type"
+            ~ $!type.^name
     }
 }
+
+#my class Sequence::TagType does Sequence {
+#    has Mu $.tag is required;
+#    method message {
+#        "Object of type " ~ $!tag.^name ~ " cannot be used as a sequence tag name"
+#    }
+#}
 
 my class Sequence::NotAny does Sequence {
     has Str:D $.why is required;
     method message {
-        "Sequence type " ~ $.type.^name ~ " is not xml:any, " ~ $.why
+        "Sequence type " ~ $!type.^name ~ " is not xml:any, " ~ $.why
     }
 }
 
@@ -280,5 +313,18 @@ class NonClass does Base {
     has Str:D $.what is required;
     method message {
         "Non-class type object " ~ $.type.^name ~ " cannot be used to " ~ $.what
+    }
+}
+
+role Trait does Base {
+    has Str:D $.trait-name is required;
+
+    method !message-trait { "Trait '$.trait-name'" }
+}
+
+my class Trait::Argument does Trait {
+    has Str:D $.why is required;
+    method message {
+        self!message-trait ~ " cannot be used with these arguments: " ~ $.why
     }
 }

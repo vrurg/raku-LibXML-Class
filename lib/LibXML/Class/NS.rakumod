@@ -28,8 +28,7 @@ method xml-set-ns-from-defs($ns-defs, Bool:D :$override = True) {
 
 method xml-collect-from-hows {
     self.^mro
-        .map(-> \t { t, t.^concretizations(:local, :transitive).map( *.^roles(:!transitive)[0] ) })
-        .flat
+        .map(-> \t { |(t, |t.^concretizations(:local, :transitive).map({ .^roles(:!transitive).head })) })
         .map({
             next unless .HOW ~~ ::?ROLE;
             .HOW.xml-namespaces
@@ -45,7 +44,6 @@ method xml-init-ns-from-hows {
     }
     unless @!xml-namespaces {
         # Collect namespaces from all parents and consumed roles.
-        note self.xml-collect-from-hows.List.raku;
         @!xml-namespaces = self.xml-collect-from-hows.List;
     }
 }
@@ -54,5 +52,5 @@ method xml-guess-default-ns {
     return $_ with $!xml-default-ns;
     return Nil without $!xml-default-ns-pfx;
 
-    @!xml-namespaces.first(*.key eq $!xml-default-ns-pfx) andthen .value orelse Nil
+    @!xml-namespaces.first(*.key eq $!xml-default-ns-pfx) andthen ($!xml-default-ns = .value) orelse Nil
 }

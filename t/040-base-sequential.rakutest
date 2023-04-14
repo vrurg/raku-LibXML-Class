@@ -1,0 +1,26 @@
+use v6.e.PREVIEW;
+use Test::Async;
+
+# Valid :sequence declarations:
+# :sequence( ElemType1, ElemType2 )
+# :sequence( :mytag(ElemType1), ElemType2 )
+# :sequence( NonElemType ) when xml-element(:any)
+# :sequence( :item(Int) )
+# :sequence( :item(Int, :attr<id>) )
+class XS is xml-element(:sequence( :foo(Str, :ns<http://test.ns>), :bar(Rat, :attr<val>) )) {
+}
+
+note XS.^name, ": ", XS.^mro(:roles).map({ .^name }).join(", ");
+
+my $xs = XS.new;
+
+$xs.push: "for foo";
+$xs.push: "foo A";
+$xs.push: 1.2;
+$xs.push: "foo B";
+$xs.push: 23.45;
+
+note "SERIALZIING SEQUENCE";
+note $xs.to-xml.Str(:format);
+
+done-testing;

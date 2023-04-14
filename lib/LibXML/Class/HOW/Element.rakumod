@@ -37,8 +37,6 @@ method compose(Mu \obj) is raw {
     -> Mu \xml-role {
         for xml-role.^xml-attrs.values -> LibXML::Class::Attr::XMLish:D $descriptor {
             my $attr = self.get_attribute_for_usage(obj, $descriptor.attr.name);
-            note "Transition attribute descriptor for ", $attr.name,
-                 ", old descr attr: ", $descriptor.attr.WHICH, ", new attr's origin: ", $attr.original.WHICH;
             self.xml-attr-register(obj, $descriptor.clone(:$attr));
         }
     }
@@ -53,28 +51,6 @@ method compose(Mu \obj) is raw {
 
     obj
 }
-
-#method compute_mro(Mu $class is raw) is raw {
-#    note "---- compute_mro on ", $class.^name;
-#
-#    note "!!! ", " PARENTS:";
-#    for $class.^parents(:!local).List -> \parent {
-#        note "    ", parent.^name;
-#    }
-#    nextsame;
-#}
-
-#method c3_merge(\ml) is raw {
-#    my sub dml(\lst, :$level = 0) {
-#        my $pfx = "  " x $level;
-#        $pfx ~ "(\n"
-#            ~ lst.map({ ($_ ~~ List ?? dml($_, :level($level+1)) !! $pfx ~ "  " ~ .^name) ~ "\n" }).join
-#        ~ "$pfx)"
-#    }
-#    note Backtrace.new.full.Str.indent(8);
-#    note "c3_merge on ", dml(ml);
-#    nextsame
-#}
 
 method xml-set-name(Mu, Str:D $!xml-name) {}
 
@@ -96,7 +72,6 @@ method xml-is-lazy(Mu) { $!xml-lazy }
 method xml-lazify-attr(Mu \obj, Attribute:D $attr) {
     my $attr-desc = self.xml-get-attr(obj, $attr);
     if $attr-desc.lazy // ($!xml-lazy && !is-basic-type($attr-desc.type)) {
-        note "LAZIFYING $attr";
         LibXML::Class::X::ReMooify.new(:$attr, :type(obj.WHAT)).throw if $attr ~~ AttrX::Mooish::Attribute;
         my $*PACKAGE = obj;
         my $xml-name = $attr-desc.xml-name;

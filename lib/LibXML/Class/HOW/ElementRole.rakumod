@@ -25,9 +25,7 @@ method compose(Mu \obj) is raw {
 
 method specialize(Mu \obj, Mu \target-class, |) is raw {
     my \target-how = target-class.HOW;
-    note "Specializing ", obj.^name, " for ", target-class.^name;
     unless target-how ~~ LibXML::Class::HOW::Element {
-        note "Force-tag ", target-class.^name, " as HOW::Element";
         target-how does LibXML::Class::HOW::Element;
         target-class.^xml-set-explicit(True);
     }

@@ -28,6 +28,7 @@
     "LibXML::Class::HOW::ElementSeq": "lib/LibXML/Class/HOW/ElementSeq.rakumod",
     "LibXML::Class::HOW::Explicit": "lib/LibXML/Class/HOW/Explicit.rakumod",
     "LibXML::Class::HOW::Imply": "lib/LibXML/Class/HOW/Imply.rakumod",
+    "LibXML::Class::ItemDescriptor": "lib/LibXML/Class/ItemDescriptor.rakumod",
     "LibXML::Class::NS": "lib/LibXML/Class/NS.rakumod",
     "LibXML::Class::Node": "lib/LibXML/Class/Node.rakumod",
     "LibXML::Class::Types": "lib/LibXML/Class/Types.rakumod",

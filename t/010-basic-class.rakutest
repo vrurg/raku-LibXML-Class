@@ -2,7 +2,15 @@ use v6.e.PREVIEW;
 use Test::Async;
 
 use LibXML::Class;
+use LibXML::Class::Config;
 
+subtest "Traits" => {
+    eval-lives-ok q:to<DECL>, "basic xml-element declaration";
+class Foo is xml-element { }
+DECL
+}
+
+#`{
 class SomeData {
     has Str $.id;
     has @.elems = 1,2,3,4;
@@ -42,8 +50,6 @@ my $foo = Foo.new(:size(12.345e2), :any(pi), :a<fubariki!>, :num(122), :data(Som
 say $foo.to-xml.Str: :format;
 
 note $foo.data.WHICH;
-
-#class XS is xml-element(:sequence( :bar(Bar, :attr<value>), :baz(Baz) )) {
 #}
 
 done-testing;

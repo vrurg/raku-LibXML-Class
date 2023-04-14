@@ -112,6 +112,7 @@ multi sub mark-attr-xml( Attribute:D $attr,
 
     # Default basic type attributes to non-lazy mode.
     %profile<lazy> //= False if $attr.type ~~ BasicType;
+    %profile<value-attr> = (%profile<attr>:delete) if %profile<attr>:exists;
 
     with %profile<ns> {
         if .List.grep({ $_ ~~ Pair && .value ~~ Str }) {

@@ -13,12 +13,20 @@ use LibXML::Class::XML;
 
 enum SerializeSeverity is export(:types) <EASY WARN STRICT>;
 
+class NSMapType {
+    has Str:D $.ns is required;
+    has Str:D $.xml-name is required;
+}
+
 has SerializeSeverity:D $.severity = WARN;
 
 has Bool:D $.eager = False;
 
 # Namespace -> element name -> class
 has %!ns-map;
+
+# Index of types registered with %!ns-map
+has %!ns-map-types{Mu} is mooish(:lazy, :clearer);
 
 has Mu:U $!xml-repr-role is mooish(:lazy) is built;
 
@@ -27,13 +35,11 @@ has LibXML::Config:D $.libxml-config is mooish(:lazy);
 my $singleton;
 
 method new(*%p) {
-    note "ENTER PROFILE: ", %p;
     if %p<severity>:exists {
         with %p<severity> {
             $_ = SerializeSeverity::{$_} if $_ ~~ Stringy;
         }
     }
-    note "USING CONFIG PROFILE: ", %p;
     self.bless(|%p)
 }
 
@@ -43,6 +49,16 @@ submethod TWEAK(:$ns-map) {
 
 method !build-xml-repr-role {
     (do require ::('LibXML::Class')).WHO<XMLRepresentation>
+}
+
+method !build-ns-map-types {
+    my %idx{Mu};
+
+    for %!ns-map.keys -> $ns {
+        for %!ns-map{$ns}.keys -> $xml-name {
+            %idx.append: (%!ns-map{$ns}{$xml-name}) => NSMapType.new(:$ns, :$xml-name);
+        }
+    }
 }
 
 multi method COERCE(%cfg) { self.new(|%cfg) }
@@ -62,15 +78,17 @@ method global(*%c) {
     $singleton //= self.new(|%c)
 }
 
-proto method alert(|) {*}
-multi method alert(Str:D $message) {
+proto method alert(|) is hidden-from-backtrace {*}
+multi method alert(Str:D $message) is hidden-from-backtrace {
     samewith LibXML::Class::X::AdHoc.new(:$message)
 }
-multi method alert(Exception:D $ex) {
-    given $!severity {
-        when EASY { return }
-        when WARN { warn $ex.message }
-        when STRICT { $ex.throw }
+multi method alert(Exception:D $ex) is hidden-from-backtrace {
+    return if $!severity == EASY;
+    if $!severity == WARN {
+        warn $ex.message;
+    }
+    else {
+        $ex.throw
     }
 }
 
@@ -86,8 +104,6 @@ multi method xmlize(Mu:U $what, LibXML::Class::XML:U $with, Str :$xml-name) is r
     unless $what.HOW ~~ Metamodel::ClassHOW {
         LibXML::Class::X::NonClass.new(:type($what), :what('produce an implicit XML representation'));
     }
-
-    note "XMLizing ", $what.^name;
 
     my \xmlized = $what.^mixin($with);
     %xmlizations{$what} := xmlized;
@@ -170,6 +186,7 @@ multi method set-ns-map(Str:D $namespace, Str:D $xml-name, LibXML::Class::XML:U 
     }
 
     %!ns-map{$namespace}{$xml-name} := $type;
+    self!clear-ns-map-types;
 }
 
 multi method set-ns-map(Str:D $namespace, Str:D $xml-name, Mu $type) {
@@ -180,6 +197,19 @@ method ns-map(::?CLASS:D: LibXML::Element:D $elem) is raw {
     %!ns-map{$elem.namespaceURI}
         andthen (.{my $xml-name = $elem.localName}:exists ?? .{$xml-name} !! Nil)
         orelse Nil
+}
+
+method ns-map-type(::?CLASS:D: Mu:U \typeobj, Str :$ns --> NSMapType) {
+    if (my @variants = (%!ns-map-types{typeobj} // Empty)) > 1 && $ns.defined {
+        @variants = @variants.grep(*.ns eq $ns);
+    }
+
+    unless @variants == 1 {
+        self.alert: LibXML::Class::X::Config::TypeMapAmbigous.new(:type(typeobj), :@variants) if @variants > 1;
+        return Nil
+    }
+
+    @variants.head
 }
 
 method in-ns-map(::?CLASS:D: LibXML::Element:D $elem --> Bool:D) {

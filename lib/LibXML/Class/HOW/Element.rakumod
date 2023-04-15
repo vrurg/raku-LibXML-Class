@@ -52,6 +52,21 @@ method compose(Mu \obj) is raw {
     obj
 }
 
+method compose_attributes(Mu \obj, |) {
+    callsame();
+
+    # Move XML attribute descriptors from xml-element roles to our registry and adjust them to point to class'
+    # attribute objects.
+    for self.role_typecheck_list(obj) -> Mu \ins_role {
+        if ins_role.HOW ~~ LibXML::Class::HOW::AttrContainer {
+            for ins_role.^xml-attrs.values -> LibXML::Class::Attr::XMLish:D $xml-attr {
+                my $attr = self.get_attribute_for_usage(obj, $xml-attr.attr.name);
+                self.xml-attr-register(obj, $xml-attr.clone(:$attr));
+            }
+        }
+    }
+}
+
 method xml-set-name(Mu, Str:D $!xml-name) {}
 
 method xml-name(Mu) {

@@ -27,6 +27,9 @@ method specialize(Mu \obj, Mu \target-class, |) is raw {
     my \target-how = target-class.HOW;
     unless target-how ~~ LibXML::Class::HOW::Element {
         target-how does LibXML::Class::HOW::Element;
+        require ::('LibXML::Class');
+        target-class.^add_role(::('LibXML::Class::XMLRepresentation'));
+        # Force the class to be explicit so we don't serialize its attributes unintentionally.
         target-class.^xml-set-explicit(True);
     }
     nextsame

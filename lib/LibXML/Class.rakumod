@@ -432,7 +432,7 @@ class XMLObject does LibXML::Class::Node {
     proto method xml-serialize-attr(LibXML::Element:D, LibXML::Class::Attr::XMLish:D) {*}
 
     multi method xml-serialize-attr(LibXML::Element:D $elem, LibXML::Class::Attr::XMLAttribute:D $xml-attr) {
-        my $attr-value := $xml-attr.get_value(self);
+        my $attr-value := $xml-attr.attr.get_value(self);
 
         return without $attr-value;
 

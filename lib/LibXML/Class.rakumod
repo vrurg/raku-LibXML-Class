@@ -657,7 +657,7 @@ class XMLObject does LibXML::Class::Node {
     }
 }
 
-role XMLRepresentation does LibXML::Class::XML is XMLObject {
+our role XMLRepresentation does LibXML::Class::XML is XMLObject {
     method xml-build-name {
         (::?CLASS.^xml-name if ::?CLASS.HOW ~~ LibXML::Class::HOW::Element) // ::?CLASS.^shortname
     }
@@ -970,7 +970,7 @@ class XMLSequence does Positional does Iterable {
     }
 }
 
-role XMLSequential does XMLRepresentation is XMLSequence {
+our role XMLSequential does XMLRepresentation is XMLSequence {
     method xml-seq-array-type { ::?CLASS.^xml-array-type }
     method xml-seq-either-any { ::?CLASS.^xml-either-any }
     method xml-seq-desc-for-elem(LibXML::Element:D $elem) { ::?CLASS.^xml-desc-for-elem($elem) }

@@ -328,3 +328,11 @@ my class Trait::Argument does Trait {
         self!message-trait ~ " cannot be used with these arguments: " ~ $.why
     }
 }
+
+my class Trait::NonXMLType does Trait {
+    has Mu $.type is required;
+    method message {
+        self!message-trait ~ " can only be used with an xml-element type object."
+            ~ " Consider declaring " ~ $!type.^name ~ " with `is xml-element`."
+    }
+}

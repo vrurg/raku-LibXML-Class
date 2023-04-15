@@ -1152,18 +1152,22 @@ BEGIN {
     }
 
     multi sub trait_mod:<is>(Mu:U \typeobj, :$xml-element!) is export {
+        my $*LIBXML-CLASS-TRAIT = "xml-element";
         typeobj-as-element(typeobj, |$xml-element.List.Capture)
     }
 
     multi sub trait_mod:<is>(Attribute:D $attr, :$xml-attribute!) is export {
+        my $*LIBXML-CLASS-TRAIT = "xml-attribute";
         LibXML::Class::Attr::mark-attr-xml($attr, |$xml-attribute.List.Capture, :!as-xml-element)
     }
 
     multi sub trait_mod:<is>(Attribute:D $attr, :$xml-element!) is export {
+        my $*LIBXML-CLASS-TRAIT = "xml-element";
         LibXML::Class::Attr::mark-attr-xml($attr, |$xml-element.List.Capture, :as-xml-element)
     }
 
     multi sub trait_mod:<is>(Attribute:D $attr, :$xml-text!) is export {
+        my $*LIBXML-CLASS-TRAIT = "xml-text";
         LibXML::Class::Attr::mark-attr-xml($attr, |$xml-text.List.Capture, :as-xml-text)
     }
 }

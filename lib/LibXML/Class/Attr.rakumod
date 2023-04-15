@@ -4,6 +4,7 @@ unit module LibXML::Class::Attr;
 use LibXML::Element;
 
 use LibXML::Class::Attr::XMLish;
+use LibXML::Class::HOW::AttrContainer;
 use LibXML::Class::Node;
 use LibXML::Class::Types;
 use LibXML::Class::X;
@@ -105,6 +106,10 @@ multi sub mark-attr-xml( Attribute:D $attr,
                          :%profile is copy )
 {
     my \pkg = $*PACKAGE;
+
+    unless pkg.HOW ~~ LibXML::Class::HOW::AttrContainer {
+        LibXML::Class::X::Trait::NonXMLType.new(:trait-name($*LIBXML-CLASS-TRAIT), :type(pkg)).throw
+    }
 
     if pkg.^xml-get-attr($attr, :local) {
         LibXML::Class::X::Redeclaration::Attribute.new(:$attr).throw

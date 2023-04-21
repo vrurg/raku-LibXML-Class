@@ -1,0 +1,391 @@
+use v6.e.PREVIEW;
+use Test::Async;
+
+use LibXML::Class;
+use LibXML::Class::Attr::XMLish;
+use LibXML::Class::Config;
+use LibXML::Class::X;
+
+constant TEST-NS = "http://test.namespace";
+
+subtest "Traits" => {
+    plan 18;
+    for <class role> -> $type-decl {
+        eval-lives-ok qq:to<DECL>, "basic xml-element $type-decl declaration";
+            my $type-decl Foo is xml-element \{ }
+            DECL
+
+        throws-like
+            "my $type-decl Foo is xml-element('name', 'garbage') \{ }",
+            LibXML::Class::X::Trait::Argument,
+            "xml-element trait throws when there is too many positionals";
+
+        throws-like
+            "my $type-decl Foo is xml-element(13) \{ }",
+            LibXML::Class::X::Trait::Argument,
+            "xml-element trait throws on wrong type positional";
+
+        throws-like
+            "my $type-decl Foo is xml-element(Str) \{ }",
+            LibXML::Class::X::Trait::Argument,
+            "xml-element trait throws on undefined positional";
+
+        throws-like
+            "my $type-decl Foo is xml-element(:unknown-named-argument) \{ }",
+            LibXML::Class::X::Trait::Argument,
+            "xml-element trait throws on unknown named argument";
+
+        for <xml-element xml-attribute> -> $attr-trait {
+            eval-lives-ok qq:to<DECL>, "mark attribute as $attr-trait";
+                my $type-decl Foo is xml-element \{
+                    has \$.attr is $attr-trait;
+                }
+                DECL
+
+            throws-like
+                "my $type-decl Foo \{ has \$.attr is $attr-trait; }",
+                LibXML::Class::X::Trait::NonXMLType,
+                "$attr-trait with attribute throws in a non-XMLized $type-decl";
+        }
+    }
+}
+
+subtest "Namespacing in class declarations" => {
+    plan 20;
+
+    my class DefaultNS is xml-element(:ns(TEST-NS)) { }
+    my $def-ns = DefaultNS.new;
+    is $def-ns.xml-default-ns, TEST-NS, "class instance gets default namespace from declaration";
+    nok $def-ns.xml-default-ns-pfx.defined, "no default prefix is set";
+
+    my class NS-For-PFX is xml-element(:ns(:pfx, :pfx(TEST-NS))) {}
+    my $ns4pfx = NS-For-PFX.new;
+    is $ns4pfx.xml-default-ns-pfx, "pfx", "default prefix is set";
+    is $ns4pfx.xml-guess-default-ns, TEST-NS, "namespace is found for the default prefix";
+
+    my class Child-With-PFX is xml-element(:ns(:pfx, :foo("http://foo.namespace"))) is NS-For-PFX { }
+    my $child-with-pfx = Child-With-PFX.new;
+    is $child-with-pfx.xml-default-ns-pfx, "pfx", "subclass default prefix";
+    is $child-with-pfx.xml-guess-default-ns, TEST-NS, "a subclass is using prefix from parent class";
+    is $child-with-pfx.xml-namespaces<foo>, "http://foo.namespace", "child-defined namespace is available";
+
+    my class Child-Redefine-PFX is xml-element(:ns(:pfx, :pfx("http://foo.namespace"))) is NS-For-PFX { }
+    my $child-redefine-pfx = Child-Redefine-PFX.new;
+    is $child-redefine-pfx.xml-guess-default-ns, "http://foo.namespace", "a subclass can re-define parent prefix";
+
+    my class Attr-PFX is xml-element(:ns(:pfx(TEST-NS))) {
+        has $.attr is xml-attribute(:ns(:pfx));
+    }
+
+    my $attribute = Attr-PFX.^xml-get-attr('$!attr');
+    isa-ok $attribute, LibXML::Class::Attr::XMLish, "XMLized attribute definition object type";
+    is $attribute.xml-default-ns-pfx, "pfx", "attribute's namespace prefix";
+    nok $attribute.xml-guess-default-ns.defined, "attribute can only have a prefix";
+
+    my class No-NS-For-PFX is xml-element(:ns(:pfx)) {}
+    my $no-ns4pfx = No-NS-For-PFX.new;
+    is $no-ns4pfx.xml-default-ns-pfx, "pfx", "default prefix is set";
+    nok $no-ns4pfx.xml-guess-default-ns.defined, "there is no namespace for default prefix";
+
+    my class Child-No-NS is xml-element is NS-For-PFX {}
+    my $child-no-ns = Child-No-NS.new;
+    nok $child-no-ns.xml-guess-default-ns.defined, "child class doesn't inherit default namespace";
+
+    throws-like
+        'my class BadNS is xml-element(:ns(13)) {}',
+        LibXML::Class::X::Namespace::Definition,
+        'non-string default URI';
+
+    throws-like
+        'my class BadNS is xml-element(:ns("ns1", "ns2")) {}',
+        LibXML::Class::X::Namespace::Definition,
+        'non-single default URI';
+
+    throws-like
+        'my class BadNS is xml-element(:ns(13 => "bad")) {}',
+        LibXML::Class::X::Namespace::Definition,
+        'non-string namespace prefix';
+
+    throws-like
+        'my class BadNS is xml-element(:ns((Str) => "bad")) {}',
+        LibXML::Class::X::Namespace::Definition,
+        'type object namespace prefix';
+
+    throws-like
+        'my class BadNS is xml-element(:ns(:pfx1, :pfx2)) {}',
+        LibXML::Class::X::Namespace::Definition,
+        'non-single default prefix';
+
+    throws-like
+        'my class BadNS is xml-element(:ns(:pfx(13))) {}',
+        LibXML::Class::X::Namespace::Definition,
+        'non-string prefix URI';
+}
+
+subtest "Attributes" => {
+    plan 28;
+
+    my class Multi-Attribute is xml-element {
+        has Int $.count is xml-attribute;
+        has Num $.tonnage is xml-element("weight", :container<measure>);
+        has Str $.description is xml-text;
+        has Str @.items is xml-element("item", :lazy, :value-attr<name>);
+        has %.rate is xml-element(:!lazy);
+        has $.utility;
+    }
+
+    is Multi-Attribute.^xml-attrs.elems, 5, "all attribute declarations are registered";
+    cmp-deeply
+        Multi-Attribute.^xml-attrs.map(*.value.kind).List,
+        ('attribute', 'value element', 'text element', 'positional', 'associative'),
+        "attribute kinds";
+    cmp-deeply
+        Multi-Attribute.^xml-attrs.map(*.value.xml-name).List,
+        <count weight description item rate>,
+        "attribute XML names";
+    cmp-deeply
+        Multi-Attribute.^xml-attrs.map(*.key).List,
+        <$!count $!tonnage $!description @!items %!rate>,
+        "attribute names";
+
+    for Multi-Attribute.^xml-attrs.map(*.key) -> $attr-name {
+        ok Multi-Attribute.^xml-has-attr($attr-name), ".^xml-has-attr for $attr-name";
+    }
+
+    nok Multi-Attribute.^xml-has-attr('$!utility'), ".^xml-has-attr doesn't see a non-XML attribute";
+    nok Multi-Attribute.^xml-has-attr('$!no-such-one'), ".^xml-has-attr doesn't see a non-existing attribute";
+
+    is Multi-Attribute.^xml-get-attr('$!tonnage').container, "measure", "attribute's property is set";
+    is Multi-Attribute.^xml-get-attr('@!items').value-attr, "name", "value-attr is used";
+    ok Multi-Attribute.^xml-get-attr('@!items').lazy, "lazyness can be enabled";
+    nok Multi-Attribute.^xml-get-attr('%!rate').lazy, "lazyness can be disabled";
+
+    ok Multi-Attribute.^xml-get-attr('$!tonnage').lazy.defined, "lazyness is implicitly defined for a basic type";
+    nok Multi-Attribute.^xml-get-attr('$!tonnage').lazy, "lazyness is disabled for a basic type by default";
+
+    is Multi-Attribute.^xml-get-attr('$!tonnage').serializer, Nil, "no serializer by default";
+    is Multi-Attribute.^xml-get-attr('$!tonnage').deserializer, Nil, "no deserializer by default";
+
+    my class Bar {
+        has Str $.bar;
+    }
+
+    my class Lazy-Attr is xml-element {
+        has Bar $.bar1 is xml-element;
+        has Bar $.bar2 is xml-element(:lazy);
+        has Bar $.bar3 is xml-element(:!lazy);
+    }
+
+    nok Lazy-Attr.^xml-get-attr('$!bar1').lazy.defined, "lazyness is not defined by default";
+    ok Lazy-Attr.^xml-get-attr('$!bar2').lazy.defined, "lazyness is defined when explicitly enabled";
+    ok Lazy-Attr.^xml-get-attr('$!bar2').lazy, "lazyness is explicitly enabled";
+    ok Lazy-Attr.^xml-get-attr('$!bar3').lazy.defined, "lazyness is defined when explicitly disabled";
+    nok Lazy-Attr.^xml-get-attr('$!bar3').lazy, "lazyness is explicitly disabled";
+
+    throws-like
+        'my class Too-Many-Positionals is xml-element { has $.attr is xml-element("name", 13) }',
+        LibXML::Class::X::Trait::Argument,
+        "xml-element with multiple positionals throws";
+
+    throws-like
+        'my class Too-Many-Positionals is xml-element { has $.attr is xml-attribute("name", 13) }',
+        LibXML::Class::X::Trait::Argument,
+        "xml-attribute with multiple positionals throws";
+
+    throws-like
+        'my class Too-Many-Positionals is xml-element { has $.attr is xml-text("name") }',
+        LibXML::Class::X::Trait::Argument,
+        "xml-text with a positional argument throws";
+
+    throws-like
+        'my class Too-Many-Positionals is xml-element { has $.attr is xml-text("name", 13) }',
+        LibXML::Class::X::Trait::Argument,
+        "xml-text with multiple positionals throws";
+}
+
+subtest "Attribute namespacing" => {
+    plan 4;
+
+    my constant TEST-NS = "http://test.namespace";
+    my class Elem-Attr-NS is xml-element {
+        # We can only reliably test prefix-only resolution when the prefix is declared on the attribute itself. This
+        # is because the only time the prefix is resolvable is run time when class instance is being put into the
+        # context of its owner instances. For example, this class' instance can be held by attributes on either Foo
+        # or Bar class and each would have different definition for "pfx".
+        has $.pfx-attr is xml-element(:ns(:pfx, :pfx(TEST-NS)));
+        has $.ns-attr is xml-element(:ns("http://foo.namespace"));
+        has $.ns-pfx-attr is xml-element(:ns("http://bar.namespace", :bar));
+    }
+
+    subtest "Prefix only" => {
+        plan 3;
+        is Elem-Attr-NS.^xml-get-attr('$!pfx-attr').xml-default-ns-pfx, "pfx", "xml-element namespace prefix is set";
+        nok Elem-Attr-NS.^xml-get-attr('$!pfx-attr').xml-default-ns.defined, "xml-element no default namespace";
+        is Elem-Attr-NS.^xml-get-attr('$!pfx-attr').xml-guess-default-ns, TEST-NS, "xml-element namespace prefix is set";
+    }
+
+    subtest "Namespace only" => {
+        plan 2;
+        is Elem-Attr-NS.^xml-get-attr('$!ns-attr').xml-default-ns, "http://foo.namespace", "xml-element default namespace is set";
+        nok Elem-Attr-NS.^xml-get-attr('$!ns-attr').xml-default-ns-pfx.defined, "xml-element no default prefix";
+    }
+
+    subtest "Both namespace and prefix" => {
+        plan 2;
+        is Elem-Attr-NS.^xml-get-attr('$!ns-pfx-attr').xml-default-ns, "http://bar.namespace", "xml-element default namespace is set";
+        is Elem-Attr-NS.^xml-get-attr('$!ns-pfx-attr').xml-default-ns-pfx, "bar", "xml-element namespace prefix is set";
+    }
+
+    throws-like
+        'my class BadAttr is xml-element { has $.attr is xml-attribute(:ns(:foo<aa>)); }',
+        LibXML::Class::X::Namespace::Definition,
+        "no xml-namespaces is allowed for xml-attribute";
+
+    # It would be logical to test NS inheriting here, but there is no public API for this functionality. Therefore it
+    # would be fully tested with de-/serializing
+}
+
+subtest "Implicit/Explicit" => {
+    plan 9;
+
+    my class Implicit-Default is xml-element {
+        has Int $.v;
+    }
+
+    nok Implicit-Default.^xml-is-explicit, "xml-element class is implicit by default";
+
+    my class Explicit-By-Elem-Attr is xml-element {
+        has Bool $.flag;
+        has Int $.v is xml-element;
+    }
+
+    ok Explicit-By-Elem-Attr.^xml-is-explicit, "xml-element class is explicit with an explicit xml-element attribute";
+
+    my class Explicit-By-Attr is xml-element {
+        has Bool $.flag;
+        has Int $.v is xml-attribute;
+    }
+
+    ok Explicit-By-Attr.^xml-is-explicit, "xml-element class is explicit with an explicit xml-attribute attribute";
+
+    my class Explicit-By-Text-Attr is xml-element {
+        has Bool $.flag;
+        has Str $.v is xml-text;
+    }
+
+    ok Explicit-By-Text-Attr.^xml-is-explicit, "xml-element class is explicit with an explicit xml-text attribute";
+
+    my class Implicit-By-Declaration is xml-element(:implicit) {
+        has Int $.count is xml-attribute;
+        has Str $.description;
+    }
+
+    nok Implicit-By-Declaration.^xml-is-explicit, "force-implicit class";
+    is Implicit-By-Declaration.^xml-attrs.elems, 2, "force-implicit class XMLizes all of of its attributes";
+    cmp-deeply
+        Implicit-By-Declaration.^xml-attrs.map(*.key).List,
+        <$!count $!description>,
+        "force-implicit class miss no attribute";
+
+    my class Explicit-By-Declaration is xml-element(:!implicit) {
+        has $.foo;
+        has $.bar;
+    }
+
+    ok Explicit-By-Declaration.^xml-is-explicit, "force-explicit class";
+    is Explicit-By-Declaration.^xml-attrs.elems, 0, "force-explicit class does nothing with its attributes";
+}
+
+subtest "Sequential" => {
+    my class Simple-XMLSeq is xml-element(:sequence(:item(Int), :elem(Str), :alias(Str))) { }
+
+    ok Int ~~ Simple-XMLSeq.of, "sequence .of type: match Int";
+    ok Str ~~ Simple-XMLSeq.of, "sequence .of type: match Str";
+    nok Num ~~ Simple-XMLSeq.of, "sequence .of type: non-match for non-item type";
+    nok Simple-XMLSeq.xml-seq-either-any, "default sequence is not :any";
+    is Simple-XMLSeq.^xml-item-descriptors.elems, 3, "all item descriptors";
+    is Simple-XMLSeq.xml-seq-desc-for-type(Int).elems, 1, "item descriptors for Int";
+    is Simple-XMLSeq.xml-seq-desc-for-type(Str).elems, 2, "item descriptors for Str";
+
+    is Simple-XMLSeq.xml-seq-desc-for-type(Int).head.xml-name, "item", "item element name is set from declarations";
+
+    nok Simple-XMLSeq.^xml-any, "sequence is :!any by default";
+
+    my class Any-XMLSeq is xml-element(:any, :sequence(Int)) {}
+
+    ok Any-XMLSeq.^xml-any, ":any sequence declared";
+
+    throws-like
+        'my class Foo {}; my class Bad-XMLSeq is xml-element(:sequence(Foo)) {}',
+        LibXML::Class::X::Sequence::NotAny,
+        "can't use non-xml-element class without XML name defined";
+
+    throws-like
+        'my class Foo {}; my class Bad-XMLSeq is xml-element(:sequence(Foo.new)) {}',
+        LibXML::Class::X::Sequence::ChildType,
+        "an instance is not allowed to declare an item type";
+
+    throws-like
+        'my class Bad-XMLSeq is xml-element(:sequence(:item(Int, :bad))) {}',
+        LibXML::Class::X::Trait::Argument,
+        "bad named in item declaration";
+
+    throws-like
+        'my class Bad-XMLSeq is xml-element(:sequence(:item(Int, :bad1, :bad2))) {}',
+        LibXML::Class::X::Trait::Argument,
+        "bad named in item declaration";
+
+    throws-like
+        'my class Bad-XMLSeq is xml-element(:sequence(:item(13))) {}',
+        LibXML::Class::X::Trait::Argument,
+        "item must be declared with a type, not an instance";
+
+    throws-like
+        'my class Bad-XMLSeq is xml-element(:sequence(:item(Int, Rat))) {}',
+        LibXML::Class::X::Trait::Argument,
+        "item must be declared with a single type";
+}
+
+#`{
+class SomeData {
+    has Str $.id;
+    has @.elems = 1,2,3,4;
+}
+
+role XR is xml-element(:ns(:bar, bar => "https://foo.ns.org/some/bar", :baz<https://foo.ns.org/some/baz>)) {
+    has Num $.size;
+}
+
+role XR2 is xml-element(:ns(:baz, fubar => "http://foo.ns.org/some/fubar")) {
+    has $.any;
+    has $.data is xml-element(:ns(:baz));
+}
+
+class Foo is xml-element("foo-elem", :implicit, :ns(:foo, foo => "http://foo.ns.org/some/bar")) does XR does XR2 {
+    has Str $.a is xml-attribute("foo-a", :ns(:fubar)) = "fooo";
+    has Int $.num;
+    has Bool $.flag;
+    has @.list is xml-element("item", :ns(:baz), :container<MyList>) = "A", e, 42;
+    has %.assoc = :a<A>, :b<bb>, :c<Si!>;
+}
+
+for Foo.^xml-attrs(:local).values -> $attr {
+    note $attr.name, " ", $attr.^name;
+}
+
+note Foo.HOW.xml-default-ns;
+note Foo.HOW.xml-default-ns-pfx, " // ", Foo.new.xml-default-ns-pfx;
+note Foo.HOW.xml-namespaces, "\n", Foo.new.xml-namespaces.join("\n").indent(2);
+
+note Foo.^mro(:roles).map(*.^name);
+
+note "default name is ", Foo.^xml-name;
+
+my $foo = Foo.new(:size(12.345e2), :any(pi), :a<fubariki!>, :num(122), :data(SomeData.new(:id<id42>)));
+
+say $foo.to-xml.Str: :format;
+
+note $foo.data.WHICH;
+#}
+
+done-testing;

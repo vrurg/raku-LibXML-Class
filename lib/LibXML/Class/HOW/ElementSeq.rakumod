@@ -60,9 +60,7 @@ method xml-build-array-type(@child-types) {
 method xml-build-from-mro(Mu \obj) {
     my %tag2desc;
     my Array[LibXML::Class::ItemDescriptor:D] %type2desc{Mu};
-
     my @child-types;
-    my $default-ns = obj.HOW.xml-guess-default-ns // "";
 
     $!xml-either-any = False;
 
@@ -72,7 +70,7 @@ method xml-build-from-mro(Mu \obj) {
         # into Bar for Seq2 instances.
         for typeobj.^xml-item-descriptors -> LibXML::Class::ItemDescriptor:D $desc {
             with $desc.xml-name {
-                %tag2desc{$desc.ns // $default-ns}{$_} = $desc;
+                %tag2desc{$desc.guess-ns // ""}{$_} = $desc;
             }
             %type2desc{$desc.type}.push: $desc;
             @child-types.push: $desc.type;

@@ -24,7 +24,7 @@ method compose(Mu \obj) is raw {
 }
 
 method specialize(Mu \obj, Mu \target-class, |) is raw {
-    my \target-how = target-class.HOW;
+    my Mu \target-how = target-class.HOW;
     unless target-how ~~ LibXML::Class::HOW::Element {
         target-how does LibXML::Class::HOW::Element;
         require ::('LibXML::Class');
@@ -32,6 +32,8 @@ method specialize(Mu \obj, Mu \target-class, |) is raw {
         # Force the class to be explicit so we don't serialize its attributes unintentionally.
         target-class.^xml-set-explicit(True);
     }
+    # Register on the target class so it wouldn't be later guessing what roles to collect data from.
+    target-how.xml-register-role(target-class, obj);
     nextsame
 }
 

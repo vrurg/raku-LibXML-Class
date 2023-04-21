@@ -24,21 +24,30 @@ has Str $!xml-name;
 # Should we try using laziness for XMLValueElement attributes?
 has Bool $!xml-lazy;
 
+# List of xml-element roles
+has $!xml-roles;
+
 method compose(Mu \obj) is raw {
 
     callsame();
 
     # Now, as the class is fully composed, finalize its XMLization.
 
-    # Collect XML attributes from any directly or transitively consumed roles
-    for @(self.concretizations(obj, :local, :transitive)) # concretizations returns NQPArray, hllize it to get .map
-        .map({ .^roles(:!transitive, :!mro).head })
-        .grep({ .HOW ~~ LibXML::Class::HOW::AttrContainer })
-    -> Mu \xml-role {
-        for xml-role.^xml-attrs.values -> LibXML::Class::Attr::XMLish:D $descriptor {
-            my $attr = self.get_attribute_for_usage(obj, $descriptor.attr.name);
-            self.xml-attr-register(obj, $descriptor.clone(:$attr));
+    # Collect data from consumed xml-element roles
+    if $!xml-roles {
+        for $!xml-roles -> Mu \xml-role {
+            for xml-role.^xml-attrs.values -> LibXML::Class::Attr::XMLish:D $descriptor {
+                my $attr = self.get_attribute_for_usage(obj, $descriptor.attr.name);
+                self.xml-attr-register(obj, $descriptor.clone(:$attr));
+            }
+
+            merge-in-namespaces(self.xml-namespaces, xml-role.HOW.xml-namespaces);
         }
+    }
+
+    # Collect namespace maps from parent classes if there is any.
+    for obj.^parents(:!local).grep({ .HOW ~~ ::?ROLE }) -> Mu \parent {
+        merge-in-namespaces(self.xml-namespaces, parent.HOW.xml-namespaces);
     }
 
     unless self.xml-is-explicit(obj) {
@@ -68,6 +77,10 @@ method compose_attributes(Mu \obj, |) {
 }
 
 method xml-set-name(Mu, Str:D $!xml-name) {}
+
+method xml-register-role(Mu \obj, Mu \xml-role) {
+    ($!xml-roles // ($!xml-roles := Array[Mu].new)).push: xml-role;
+}
 
 method xml-name(Mu) {
     $!xml-name

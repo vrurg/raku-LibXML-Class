@@ -1,0 +1,48 @@
+use v6.e.PREVIEW;
+use Test::Async;
+
+use LibXML::Class;
+use LibXML::Class::HOW::Element;
+
+constant TEST-NS = "http://rolish.namespace";
+
+subtest "XML role to plain class" => {
+    plan 4;
+
+    my role XMLRole is xml-element {
+        has Str $.attr1 is xml-attribute;
+        has Num $.attr2 is xml-element;
+    }
+
+    my class Foo does XMLRole {
+        has Int $.foo;
+    }
+
+    isa-ok Foo, LibXML::Class::XMLObject, "plain class becomes an xml-elemen by consuming XMLized role";
+    isa-ok Foo.HOW, LibXML::Class::HOW::Element, "class' HOW type";
+    ok Foo.^xml-is-explicit, 'auto-xmlized class is explicit';
+    cmp-deeply Foo.^xml-attrs.keys, XMLRole.^candidates.head.^xml-attrs.keys, "only attributes from xml-element role";
+}
+
+subtest "Namespacng in role declarations" => {
+    my role Pfx-Only-Role is xml-element(:ns(:pfx(TEST-NS))) {
+        has $.role-attr is xml-element(:ns(:pfx));
+    }
+
+    my class Pfx-From-Role is xml-element(:ns(:pfx)) does Pfx-Only-Role {}
+
+    my $pfx-from-role = Pfx-From-Role.new;
+    is $pfx-from-role.xml-guess-default-ns, TEST-NS, "xml-element class uses its role namespaces too";
+
+    my role NS-Role is xml-element(:ns(TEST-NS)) { }
+    my class NS-From-Role is xml-element does NS-Role { }
+    my $ns-from-role = NS-From-Role.new;
+    is $ns-from-role.xml-guess-default-ns, TEST-NS, "xml-element class uses role's default namespace";
+
+    my role Fubar is xml-element(:ns("other-ns")) {}
+    throws-like 'my class NS-Conflict is xml-element does NS-Role does Fubar { }',
+                LibXML::Class::X::Namespace::Conflicting,
+                "consuming roles with different default namespaces throws";
+}
+
+done-testing;

@@ -13,6 +13,15 @@ use LibXML::Class::Utils;
 
 # For attributes mapping into XML element attributes
 class XMLAttribute does LibXML::Class::Attr::XMLish {
+    submethod TWEAK {
+        if self.xml-namespaces {
+            LibXML::Class::X::Namespace::Definition.new(
+                :why('prefix declaration is not allowed with xml-attribute ' ~ $!attr.name),
+                :what($_)
+                ).throw
+        }
+    }
+
     method kind is pure { "attribute" }
 }
 
@@ -72,17 +81,23 @@ class XMLAssociative is XMLValueElement {
 
 our proto sub mark-attr-xml(|) {*}
 
-multi sub mark-attr-xml(Attribute:D $attr, Bool:D :as-xml-text($)!, *%profile) {
-    samewith($attr, attr-role => XMLTextNode, :%profile)
+multi sub mark-attr-xml(Attribute:D $attr, $pos-arg?, Bool:D :as-xml-text($)!, *@pos, *%profile) {
+    # Don't throw here if there is more than one positional because the next candidate will report this case
+    unless $pos-arg ~~ Bool || @pos {
+        LibXML::Class::X::Trait::Argument.new(:why("only named arguments are accepted")).throw
+    }
+    samewith($attr, descriptor-class => XMLTextNode, :@pos, :%profile)
 }
 
 multi sub mark-attr-xml( Attribute:D $attr,
                          $pos-arg?,
                          Bool:D :$as-xml-element!,
+                         *@pos,
                          *%profile )
 {
     my $sigil = $attr.name.substr(0,1);
     my \attr-type = $attr.type;
+
     my Mu $descriptor-class :=
         $as-xml-element
         ?? $sigil eq '@' && attr-type ~~ Positional
@@ -98,14 +113,19 @@ multi sub mark-attr-xml( Attribute:D $attr,
         LibXML::Class::X::Attr::Sigil.new(:$attr, :what('Trait argument :any')).throw
     }
 
-    samewith($attr, :$descriptor-class, :%profile)
+    samewith($attr, :$descriptor-class, :@pos, :%profile)
 }
 
 multi sub mark-attr-xml( Attribute:D $attr,
                          :$descriptor-class! is raw,
+                         :@pos,
                          :%profile is copy )
 {
     my \pkg = $*PACKAGE;
+
+    if @pos {
+        LibXML::Class::X::Trait::Argument.new(:why("too many positionals in trait arguments")).throw
+    }
 
     unless pkg.HOW ~~ LibXML::Class::HOW::AttrContainer {
         LibXML::Class::X::Trait::NonXMLType.new(:trait-name($*LIBXML-CLASS-TRAIT), :type(pkg)).throw
@@ -119,18 +139,5 @@ multi sub mark-attr-xml( Attribute:D $attr,
     %profile<lazy> //= False if $attr.type ~~ BasicType;
     %profile<value-attr> = (%profile<attr>:delete) if %profile<attr>:exists;
 
-    with %profile<ns> {
-        if .List.grep({ $_ ~~ Pair && .value ~~ Str }) {
-            LibXML::Class::X::Namespace::Definition.new(
-                :why('prefix declaration is not allowed with xml-attribute ' ~ $attr.name),
-                :got($_)
-                ).throw
-        }
-    }
-
     pkg.^xml-attr-register: $descriptor-class.new(|%profile, :$attr);
-
-    # Unless the owning package is manually marked as implicit any explicitly marked attribute turns it into an
-    # explicit one.
-    pkg.^xml-set-explicit(True);
 }

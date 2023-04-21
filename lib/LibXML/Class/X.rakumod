@@ -45,18 +45,27 @@ my class Attr::Sigil does Attr {
 role Namespace does Base {};
 
 my class Namespace::Definition does Namespace {
+    my class NO-WHAT {}
     has Str:D $.why is required;
-    has Mu $.what is required;
+    has Mu $.what = NO-WHAT;
     method message {
-        "Incorrect declaration of namespace: " ~ $.why ~ ", got " ~ $.what.gist
+        "Incorrect declaration of namespace: " ~ $.why ~ |(", got " ~ $.what.gist unless $.what === NO-WHAT)
     }
 }
 
 my class Namespace::Prefix does Namespace {
     has Str:D $.prefix is required;
-    has Mu $.type is required;
+    has Str $.what;
     method message {
-        "There is no namespace deinition for prefix '$!prefix' for type " ~ $!type.^name
+        "There is no namespace deinition for prefix '$!prefix'" ~ (" for " ~ $_ with $.what)
+    }
+}
+
+my class Namespace::URI does Namespace {
+    has Str:D $.URI is required;
+    has Str $.what;
+    method message {
+        "There is no namespace '$!URI'" ~ (" for " ~ $_ with $.what)
     }
 }
 
@@ -282,7 +291,7 @@ my class Sequence::ChildType does Sequence {
     method message {
         "Object of type "
             ~ $.child-decl.^name
-            ~ " cannot be used as a child element declaration for sequnce type"
+            ~ " cannot be used as a child element declaration for sequnce type "
             ~ $!type.^name
     }
 }
@@ -317,15 +326,18 @@ class NonClass does Base {
 }
 
 role Trait does Base {
-    has Str:D $.trait-name is required;
+    has Str:D $.trait-name = $*LIBXML-CLASS-TRAIT;
 
     method !message-trait { "Trait '$.trait-name'" }
 }
 
 my class Trait::Argument does Trait {
     has Str:D $.why is required;
+    has Str:D @.details;
     method message {
-        self!message-trait ~ " cannot be used with these arguments: " ~ $.why
+        self!message-trait
+            ~ " cannot be used with these arguments: " ~ $.why
+            ~ |("\n" ~ @!details.map("  - " ~ *).join("\n") if @!details)
     }
 }
 

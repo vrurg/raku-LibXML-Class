@@ -13,7 +13,7 @@
   ],
   "build-depends": [],
   "test-depends": [
-    "Test::Async:ver<0.0.17+>:auth<zef:vrurg>"
+    "Test::Async:ver<0.1.11+>:auth<zef:vrurg>"
   ],
   "provides": {
     "LibXML::Class": "lib/LibXML/Class.rakumod",

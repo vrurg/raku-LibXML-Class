@@ -31,8 +31,10 @@ class OHash does Associative does Iterable is export {
         @!values.BIND-POS: self!KEY-POS(key), val
     }
 
-    method AT-KEY(Mu \key) is raw {
-        %!idx.AT-KEY(key) andthen @!values.AT-POS($_) orelse Nil
+    method AT-KEY(Mu \key) is rw {
+        (%!idx.AT-KEY(key) andthen @!values.AT-POS($_))
+            // Proxy.new( FETCH => -> $ { Nil },
+                          STORE => -> $, \val { self.ASSIGN-KEY(key, val) } )
     }
 
     method CLEAR {
@@ -91,6 +93,8 @@ class OHash does Associative does Iterable is export {
     method kv {
         Seq.new: KVIter.new(:@!keys, :@!values)
     }
+
+    multi method Bool(::?CLASS:D:) { ? @!keys }
 
     method gist {
         '{' ~ self.pairs.map( *.gist).join(", ") ~ '}'

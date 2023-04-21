@@ -11,22 +11,38 @@ also does LibXML::Class::NS;
 
 has Str:D $.xml-name is mooish(:lazy<xml-build-name>, :predicate);
 
-# Produce a namespace object for node's default NS
-method xml-get-ns-default(LibXML::Node:D $lookup-node --> LibXML::Namespace:D) {
-    my $default-pfx = $.xml-default-ns-pfx;
-    return Nil unless $.xml-default-ns || $default-pfx;
-    my $URI = $.xml-default-ns // $lookup-node.lookupNamespaceURI( $default-pfx );
-    LibXML::Namespace.new(:$URI, :prefix($default-pfx))
-}
-
-method xml-apply-ns(::?CLASS:D: LibXML::Element:D $dest-elem, Bool:D :$default = True --> LibXML::Element:D) {
-    for @.xml-namespaces -> (:key($prefix), :value($URI)) {
+method xml-apply-ns( ::?CLASS:D:
+                     LibXML::Element:D $dest-elem,
+                     Bool:D :$default = True,
+                     Str :$URI is copy,
+                     Str :$prefix is copy,
+                     :$config = $*LIBXML-CLASS-CONFIG
+    --> LibXML::Element:D)
+{
+    for %.xml-namespaces.pairs -> (:key($prefix), :value($URI)) {
         $dest-elem.setNamespace($URI, $prefix, :!activate);
     }
 
-    if $default {
-        with self.xml-get-ns-default($dest-elem) {
-            $dest-elem.setNamespace(.declaredURI, .declaredPrefix);
+    if $default || ($URI // $prefix).defined {
+        without $URI // $prefix {
+            $URI = $.xml-default-ns;
+            $prefix = $.xml-default-ns-pfx;
+        }
+        with $URI {
+            $dest-elem.setNamespace($_, "");
+        }
+        with $prefix {
+            with $dest-elem.lookupNamespaceURI($_) -> $pfxURI {
+                $dest-elem.setNamespace: $pfxURI, $_;
+            }
+            else {
+                if $config {
+                    $config.alert:
+                        LibXML::Class::X::Namespace::Prefix.new(
+                            :prefix($_),
+                            :what("element <" ~ $dest-elem.name ~ ">")).throw
+                }
+            }
         }
     }
 

@@ -1,0 +1,154 @@
+use v6.e.PREVIEW;
+use Test::Async;
+
+use LibXML::Class;
+
+my constant TEST-NS1 = "http://test1.namespace";
+my constant TEST-NS2 = "http://test2.namespace";
+my constant TEST-NS3 = "http://test3.namespace";
+
+plan 3;
+
+subtest "Namespacing" => {
+    plan 7;
+
+    my class NS-Attr is xml-element {
+        has $.elem1 is xml-element( :ns(TEST-NS1) );
+        has $.elem2 is xml-element( :ns(:foo) );
+        has $.elem3 is xml-element( :ns(:bar, :bar(TEST-NS2)) );
+
+        has $.attr1 is xml-attribute( :ns( :baz ) );
+        has $.attr2 is xml-attribute<aliased>;
+    }
+
+    is NS-Attr.^xml-get-attr('$!elem1').xml-guess-default-ns, TEST-NS1, "xml-element attribute default namespace";
+
+    nok NS-Attr.^xml-get-attr('$!elem2').xml-default-ns.defined, "xml-element attruibute with prefix only";
+    is NS-Attr.^xml-get-attr('$!elem2').xml-default-ns-pfx, 'foo', "prefix of xml-element attruibute with prefix only";
+
+    is NS-Attr.^xml-get-attr('$!elem3').xml-guess-default-ns, TEST-NS2,
+               "xml-element attribute with prefix only, but the prefix is declared";
+
+    is NS-Attr.^xml-get-attr('$!attr1').xml-default-ns-pfx, 'baz',
+       "prefix of xml-attribute attruibute with prefix only";
+
+    is NS-Attr.^xml-get-attr('$!attr2').xml-name, 'aliased', "xml-attribute name alternation";
+
+    subtest "Inheriting" => {
+        plan 5;
+
+        my class Default-NS is xml-element( :ns(TEST-NS1) ) {
+            has $.attr is xml-element(:inherit);
+        }
+
+        cmp-deeply Default-NS.^xml-get-attr('$!attr').maybe-inherit-ns,
+                   (TEST-NS1, Str),
+                   "attribute inherits from its class";
+
+        my $default-ns = Default-NS.new(:xml-default-ns-pfx<foo>);
+        cmp-deeply Default-NS.^xml-get-attr('$!attr').maybe-inherit-ns(:from($default-ns)),
+                   (TEST-NS1, 'foo'),
+                   "attribute inherits from class instance 1";
+
+        $default-ns = Default-NS.new(:xml-default-ns(TEST-NS3), :xml-default-ns-pfx<bar>);
+        cmp-deeply Default-NS.^xml-get-attr('$!attr').maybe-inherit-ns(:from($default-ns)),
+                   (TEST-NS3, 'bar'),
+                   "attribute inherits from class instance 2";
+
+        my \ns-role = (my role Namespaced is xml-element( :ns(TEST-NS2, :foo(TEST-NS3) ) ) {
+            has $.ns-attr is xml-element(:inherit);
+        });
+
+        cmp-deeply ns-role.^xml-get-attr('$!ns-attr').maybe-inherit-ns,
+                   (TEST-NS2, Str),
+                   "attribute inherits from its role";
+
+        my class NS-From-Prefix is xml-element( :ns(:foo) ) does Namespaced { }
+
+        cmp-deeply NS-From-Prefix.^xml-get-attr('$!ns-attr').maybe-inherit-ns,
+                   (TEST-NS2, Str),
+                   "attribute inherits from its role even when consumed by a class";
+    }
+}
+
+subtest "Errors" => {
+    plan 20;
+
+    my @traits = <xml-attribute xml-element xml-text>;
+    for @traits -> $attr-trait {
+        throws-like
+            q<my class Foo is xml-element { has $.attr is > ~ $attr-trait ~ q<("aa", "bb"); }>,
+            LibXML::Class::X::Trait::Argument,
+            "too many positionals with $attr-trait throw";
+
+        throws-like
+            q<my class Foo is xml-element { has $.attr is > ~ $attr-trait ~ q<(:no-such); }>,
+            LibXML::Class::X::Trait::Argument,
+            "unknown named with $attr-trait throws";
+
+        for @traits -> $secondary {
+            throws-like
+                q<my class Foo is xml-element { has $.attr is > ~ $attr-trait ~ ' is ' ~ $secondary ~ q<; }>,
+                LibXML::Class::X::Redeclaration::Attribute,
+                "combined application of $attr-trait and $secondary throws";
+        }
+    }
+
+    throws-like
+        q<my class Foo is xml-element { has $.attr is xml-text(:any); }>,
+        LibXML::Class::X::Trait::Argument,
+        "a named valid for xml-element throws with xml-text";
+
+    throws-like
+        q<my class Foo is xml-element { has $.attr is xml-element(:trim); }>,
+        LibXML::Class::X::Trait::Argument,
+        "a named valid for xml-text throws with xml-element";
+
+    throws-like
+        q<my class Foo is xml-element { has $.attr is xml-element(:any(13)); }>,
+        X::TypeCheck::Assignment,
+        "named argument of a wrong type throws";
+
+    throws-like
+        q<my class Foo is xml-element { has $.attr is xml-attribute(:ns(:pfx<a.namespace>)); }>,
+        LibXML::Class::X::NS::Definition,
+        "namespace prefix map cannot be declared with xml-attribute trait";
+
+    throws-like
+        q<my class Foo is xml-element { has $.attr is xml-text(:ns(:pfx)); }>,
+        LibXML::Class::X::Trait::Argument,
+        "xml-text attribute cannot have namespace declaration";
+}
+
+subtest "Containers" => {
+    my class Struct is xml-element<struct> {}
+
+    my class Foo is xml-element {
+        has Str $.cont1 is xml-element(:container<c1>);
+        has Int $.cont2 is xml-element("elem2", :container<c2>);
+        has Struct $.cont3 is xml-element(:container);
+        has Struct $.cont4 is xml-element(:container<c4>);
+        has Struct $.cont5 is xml-element("elem5", :container);
+    }
+
+    my @cont-names =
+        cont1 => <cont1 c1>,
+        cont2 => <elem2 c2>,
+        cont3 => <struct cont3>,
+        cont4 => <cont4 c4>,
+        cont5 => <struct elem5>;
+
+    plan +@cont-names;
+
+    for @cont-names -> (:key($aname), :value($) ($vname, $cname)) {
+        my LibXML::Class::Attr::XMLValueElement:D $attr = Foo.^xml-get-attr('$!' ~ $aname);
+        subtest '$!' ~ $aname => {
+            plan 3;
+            is $attr.container-name, $cname, "container name";
+            is $attr.value-name, $vname, "value element name";
+            is $attr.outer-name, $cname, "attribute's outer XML name";
+        }
+    }
+}
+
+done-testing;

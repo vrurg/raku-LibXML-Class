@@ -1,13 +1,13 @@
 use v6.e.PREVIEW;
 unit class LibXML::Class::ItemDescriptor;
 
-use LibXML::Class::NS;
+use LibXML::Class::Node;
+use LibXML::Class::HOW::Element;
 
-also does LibXML::Class::NS;
+also does LibXML::Class::Node;
 
 has Mu $.type is built(:bind) is required;
 has Mu:D $.seq-how is built(:bind) is required; # The HOW object of type object-declarator
-has Str $.xml-name;
 has Str $.value-attr;
 
 multi method new(Mu:U \typeobj, *%c) {
@@ -16,6 +16,12 @@ multi method new(Mu:U \typeobj, *%c) {
 
 submethod TWEAK(:$ns) {
     self.xml-set-ns-from-defs($ns) with $ns;
+}
+
+method xml-build-name {
+    $!type.HOW ~~ LibXML::Class::HOW::Element
+        ?? $!type.^xml-name
+        !! "" #die "Sequence item of type " ~ $!type.^name ~ " must have an explicit XML name"
 }
 
 method guess-ns(::?CLASS:D:) {

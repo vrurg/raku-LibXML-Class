@@ -42,9 +42,9 @@ my class Attr::Sigil does Attr {
     }
 }
 
-role Namespace does Base {};
+role NS does Base {};
 
-my class Namespace::Definition does Namespace {
+my class NS::Definition does NS {
     my class NO-WHAT {}
     has Str:D $.why is required;
     has Mu $.what = NO-WHAT;
@@ -53,23 +53,29 @@ my class Namespace::Definition does Namespace {
     }
 }
 
-my class Namespace::Prefix does Namespace {
+my class NS::Prefix does NS {
     has Str:D $.prefix is required;
     has Str $.what;
+    has Str $.while;
     method message {
-        "There is no namespace deinition for prefix '$!prefix'" ~ (" for " ~ $_ with $.what)
+        "There is no namespace deinition for prefix '$!prefix'"
+            ~ (" for " ~ $_ with $.what)
+            ~ (" while " ~ $_ with $.while)
     }
 }
 
-my class Namespace::URI does Namespace {
-    has Str:D $.URI is required;
+my class NS::Namespace does NS {
+    has Str:D $.namespace is required;
     has Str $.what;
+    has Str $.while;
     method message {
-        "There is no namespace '$!URI'" ~ (" for " ~ $_ with $.what)
+        "There is no namespace '$!namespace'"
+            ~ (" for " ~ $_ with $.what)
+            ~ (" while " ~ $_ with $.while)
     }
 }
 
-my class Namespace::Mismatch does Namespace {
+my class NS::Mismatch does NS {
     has Str:D $.expected is required;
     has Str:D $.got is required;
     has Str:D $.what is required;
@@ -89,18 +95,22 @@ class UnsupportedType does Base {
 role Redeclaration does Base {}
 
 my class Redeclaration::Type does Redeclaration {
-    has Mu:U $.type is built(:bind);
+    has Mu $.type is built(:bind);
     has Str:D $.kind is required;
     has Str:D $.what is required;
     method message {
-        $.kind.tclc ~ " " ~~ $!type.^name ~~ " is already declared as " ~ $.what
+        $.kind.tclc ~ " " ~ $!type.^name ~ " is already declared as " ~ $.what
     }
 }
 
 my class Redeclaration::Attribute does Redeclaration {
-    has Attribute:D $.attr is required;
+    has $.desc is required;
     method message {
-        "Attribute " ~ $.attr.name ~ " is already declared as an XML " ~ $.attr.xml-kind
+#        try {
+#            CATCH { default { note .message } }
+#            note "ATTR ", $.desc.kind;
+#        }
+        "Attribute " ~ $.desc.name ~ " is already declared as an XML " ~ $.desc.kind
     }
 }
 
@@ -131,13 +141,13 @@ my class AttrDuplication::Text does AttrDuplication {
 }
 
 my class AttrDuplication::Attr does AttrDuplication {
-    has Str:D $.nsURI is required;
+    has Str:D $.ns is required;
     has Str:D $.name is required;
     method message {
         "Multiple attributes claim XML "
             ~ @.attr.head.xml-kind ~ " '"
             ~ $.name ~ "' under namespace '"
-            ~ $.nsURI ~ "'"
+            ~ $.ns ~ "'"
             ~ self.message-for
     }
 }
@@ -334,9 +344,11 @@ role Trait does Base {
 my class Trait::Argument does Trait {
     has Str:D $.why is required;
     has Str:D @.details;
+    has Bool:D $.singular = False;
     method message {
         self!message-trait
-            ~ " cannot be used with these arguments: " ~ $.why
+            ~ " cannot be used with "
+            ~ ($!singular ?? "this argument" !! "these arguments") ~ ": " ~ $.why
             ~ |("\n" ~ @!details.map("  - " ~ *).join("\n") if @!details)
     }
 }

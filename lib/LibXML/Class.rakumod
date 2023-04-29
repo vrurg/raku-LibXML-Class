@@ -43,8 +43,8 @@ my class DeserializingCtx {
     has %.user-profile;
     # The resulting profile
     has %.profile = :$!xml-document;
+    # All NS prefixes mapping into actual namespaces from all parent classes
     has %.xml-namespaces;
-    # All NS prefixes mapping into URIs from all parent classes
 
     # Map namespace/node name into Raku attributes
     has %!xml-props;
@@ -77,7 +77,7 @@ my class DeserializingCtx {
         }
     }
 
-    # Finds the default NS URI for a LibXML::Class node based on the current context namespaces
+    # Finds the default namespace for a LibXML::Class node based on the current context namespaces
     method !ns-default(LibXML::Class::NS:D $node, :$overrides = True) {
         return $_ with $node.xml-default-ns;
         return "" unless $node.xml-default-ns || $node.xml-default-ns-pfx;
@@ -87,33 +87,33 @@ my class DeserializingCtx {
             !! %.xml-namespaces;
 
         %nsp{$node.xml-default-ns-pfx}
-            // LibXML::Class::X::Namespace::Prefix.new(:what("type " ~ $!into), :prefix($node.xml-default-ns-pfx)).throw
+            // LibXML::Class::X::NS::Prefix.new(:what("type " ~ $!into), :prefix($node.xml-default-ns-pfx)).throw
     }
 
     method !add-attribute($attr, $name, %into is raw) {
-        my $nsURI = self!ns-default($attr);
-        with %into{$nsURI}{$name} {
+        my $namespace = self!ns-default($attr);
+        with %into{$namespace}{$name} {
             # Some other attribute has already claimed this node under the same namespace
-            LibXML::Class::X::AttrDuplication::Attr.new(:type($!into), :$nsURI, :$name, :attrs($_, $attr)).throw
+            LibXML::Class::X::AttrDuplication::Attr.new(:type($!into), :$namespace, :$name, :attrs($_, $attr)).throw
         }
-        %into{$nsURI}{$name} = $attr;
+        %into{$namespace}{$name} = $attr;
     }
 
     # attr-for- methods map a LibXML::Node into a LibXML::Class attribute based on the node namespace.
     # The matching NS is passed into &with callback for later use.
     method attr-for-prop(LibXML::Attr:D $xml-attr, &with --> LibXML::Class::Attr::XMLish) {
-        my $nsURI = $xml-attr.namespaceURI // "";
+        my $namespace = $xml-attr.namespaceURI // "";
         my $xml-name = $xml-attr.name;
-        ((%!xml-props{$nsURI} andthen .{$xml-name}) orelse (%!xml-props{*} andthen .{$xml-name}))
-            andthen &with($_, $nsURI)
+        ((%!xml-props{$namespace} andthen .{$xml-name}) orelse (%!xml-props{*} andthen .{$xml-name}))
+            andthen &with($_, $namespace)
             orelse Nil
     }
 
     method attr-for-elem(LibXML::Element:D $elem, &with --> LibXML::Class::Attr::XMLish) {
-        my $nsURI = $elem.namespaceURI // "";
+        my $namespace = $elem.namespaceURI // "";
         my $elem-name = $elem.localname;
-        ((%!xml-tags{$nsURI} andthen .{$elem-name}) orelse (%!xml-tags{*} andthen .{$elem-name}))
-            andthen &with($_, $nsURI)
+        ((%!xml-tags{$namespace} andthen .{$elem-name}) orelse (%!xml-tags{*} andthen .{$elem-name}))
+            andthen &with($_, $namespace)
             orelse Nil
     }
 
@@ -220,8 +220,6 @@ class XMLObject does LibXML::Class::Node {
 
     has LibXML::Class::Document $.xml-document;
 
-    has LibXML::Class::Config $.xml-config is mooish(:lazy<xml-build-config>);
-
     # What we've got as from-xml %profile argument
     has %.xml-user-profile;
 
@@ -235,8 +233,8 @@ class XMLObject does LibXML::Class::Node {
         }
     }
 
-    method xml-build-config {
-        $!xml-document andthen .config orelse LibXML::Class::Config.global
+    method xml-config {
+        $*LIBXML-CLASS-CONFIG // $!xml-document.config // LibXML::Class::Config.global
     }
 
     method xml-serialize-stages is raw {
@@ -244,6 +242,25 @@ class XMLObject does LibXML::Class::Node {
     }
     method xml-profile-stages is raw {
         ('xml-from-element-repr',)
+    }
+
+    method xml-create-child-element( ::?CLASS:D:
+                                     LibXML::Element:D $parent,
+                                     LibXML::Class::Node:D $from,
+                                     Str :$name,
+                                     *%profile
+        --> LibXML::Element:D )
+    {
+        # By default we borrow parent element default namespace.
+        # say ">>> ", $parent.name, "\n",
+        #     "PARENT NAMESPACES:\n", $parent.getNamespaces.map("    " ~ *.gist).join("\n");
+        # say "              URI: ", $parent.namespaceURI;
+        # say "           PREFIX: ", $parent.prefix;
+        my $child = $parent.ownerDocument.createElement($name // $from.xml-name);
+        $parent.add: $child;
+        $child.setNamespace($parent.namespaceURI, $parent.prefix);
+        $from.xml-apply-ns($child, |%profile);
+        $child
     }
 
     proto method xml-type-from-str(Mu:U, Str:D) {*}
@@ -302,12 +319,13 @@ class XMLObject does LibXML::Class::Node {
         # Deserializer of an element attribute takes the element. We wash our hands here.
         return $attr.deserializer.($elem) if $attr.has-deserializer;
 
-        if $attr.xml-any {
+        if $attr.is-any {
             my LibXML::Element:D $any-elem = $elem.elements.head;
-            my \any-type = $!xml-config.ns-map($any-elem);
+            my $xml-config = $.xml-config;
+            my \any-type = $xml-config.ns-map($any-elem);
             if any-type === Nil {
                 my $ex = LibXML::Class::X::Deserialize::NoNSMap.new(:elem($any-elem));
-                $!xml-config.alert: $ex;
+                $xml-config.alert: $ex;
                 # Unless severity level is  STRICT then return a Failure. If that's ok with the user and their
                 # destination container allows for it then that failure can be used by serialization to reproduce the
                 # original element. Otherwise throwing due to failed typecheck would be a totally reasonable outcome.
@@ -360,7 +378,7 @@ class XMLObject does LibXML::Class::Node {
 
     method xml-decontainerize(LibXML::Element:D $elem,
                               LibXML::Class::Attr::XMLContainer:D $attr,
-                              Str:D $expected-ns-URI = "",
+                              Str:D $expected-ns = "",
         # Should we throw away empty #text?
                               Bool :$trim
         --> Seq:D)
@@ -376,10 +394,10 @@ class XMLObject does LibXML::Class::Node {
                     take $child;
                 }
                 else {
-                    if (my $childNS = $child.namespaceURI // "") ne $expected-ns-URI {
+                    if (my $childNS = $child.namespaceURI // "") ne $expected-ns {
                         # Mismatch of container's child element to the expected namespace is not ignorable.
-                        LibXML::Class::X::Namespace::Mismatch.new(
-                            :expected($expected-ns-URI),
+                        LibXML::Class::X::NS::Mismatch.new(
+                            :expected($expected-ns),
                             :got($childNS),
                             :what("child element '" ~ $child.name ~ "' of container '" ~ $elem.name ~ "'")).throw
                     }
@@ -396,24 +414,54 @@ class XMLObject does LibXML::Class::Node {
             !! self.xml-type-to-str($attr-value)
     }
 
-    method xml-ser-attr-val2elem(LibXML::Element:D $elem, LibXML::Class::Attr::XMLish:D $xml-attr, Mu $attr-value) {
+    # Take a dummy XML element and complete it with data from attribute value.
+    method xml-ser-attr-val2elem( LibXML::Element:D $elem,
+                                  LibXML::Class::Attr::XMLish:D $xml-attr,
+                                  Mu $attr-value )
+    {
+        my LibXML::Element:D $velem = $elem;
+
+        if $xml-attr.is-any {
+            my $xml-config = $.xml-config;
+
+            # When attribute value is an xml-element then let it do all the work, but prepare an element for it first
+            # so that if it refers to upstream xmlns prefixes then it will have them readily available.
+
+            # Map through configuration's ns-map first.
+            my $ns = $elem.namespaceURI // "";
+            without my $ns-map = $xml-config.ns-map-type($attr-value.WHAT, :$ns) {
+                $xml-config.alert:
+                    LibXML::Class::X::Serialize::Impossible.new(
+                        :what($attr-value),
+                        :why( "not found in config's ns-map for attribute "
+                                ~ $xml-attr.name
+                                ~ " with namespace '$ns'" ));
+                return Nil
+            }
+
+            $velem = self.xml-create-child-element:
+                        $elem,
+                        ($attr-value ~~ XMLRepresentation ?? $attr-value !! $xml-attr),
+                        :name($ns-map.xml-name);
+        }
+
+        my $*LIBXML-CLASS-ELEMENT = $velem;
+
         if $xml-attr.value-attr -> $xml-aname {
             # Attribute value is to be kept in XML element attribute
-            $elem.setAttribute($xml-aname, self.xml-ser-attr-value($xml-attr, $attr-value))
+            $velem.setAttribute($xml-aname, self.xml-ser-attr-value($xml-attr, $attr-value))
         }
         elsif !$xml-attr.has-serializer and ($attr-value ~~ XMLRepresentation || $attr-value !~~ BasicType) {
             my $cvalue = $attr-value;
             unless $cvalue ~~ XMLRepresentation {
                 # Turn a basic class into an XMLRepresentation with implicit flag raised
-                $cvalue = $*LIBXML-CLASS-CONFIG.xmlize($attr-value, XMLRepresentation);
+                $cvalue = $.xml-config.xmlize($attr-value, XMLRepresentation);
             }
-            my $celem = $elem.ownerDocument.createElement($attr-value.^shortname);
-            $elem.add: $celem;
             # TODO Attribute xml-namespace is not used; set element namespace if attribute overrides it.
-            $cvalue.to-xml($celem);
+            $cvalue.to-xml($velem);
         }
         else {
-            $elem.appendText(self.xml-ser-attr-value($xml-attr, $attr-value));
+            $velem.appendText(self.xml-ser-attr-value($xml-attr, $attr-value));
         }
         $elem
     }
@@ -428,7 +476,7 @@ class XMLObject does LibXML::Class::Node {
         my $xml-attr-name = $xml-attr.xml-name;
         my $xml-attr-value = self.xml-ser-attr-value($xml-attr, $attr-value);
 
-        my ($ns, $) = $xml-attr.maybe-inherit-ns($elem, self, :resolve);
+        my ($ns, $) = $xml-attr.maybe-inherit-ns(:from(self), :resolve($elem));
 
         with $ns {
             $elem.setAttributeNS: $ns, $xml-attr-name, $xml-attr-value;
@@ -449,24 +497,19 @@ class XMLObject does LibXML::Class::Node {
 
         return unless @attr-values;
 
-        my $document = $elem.ownerDocument;
-
         # Positional containerization differs from other elements since by default their elements are direct
         # children of the parent.
-        my LibXML::Element:D $celem = $elem;
-        my ($URI, $prefix) = $xml-attr.maybe-inherit-ns($elem, self);
+        my ($namespace, $prefix) = $xml-attr.maybe-inherit-ns(:from(self));
 
-        if $xml-attr.container -> $cname {
-            $celem = $document.createElement($cname);
-            $elem.add: $celem;
-            $xml-attr.xml-apply-ns($celem, :$URI, :$prefix);
-        }
+        my LibXML::Element:D $celem =
+            $xml-attr.container
+                ?? self.xml-create-child-element($elem, $xml-attr, :name($xml-attr.container-name), :$namespace, :$prefix)
+                !! $elem;
 
-        my $velem-name = $xml-attr.xml-name;
         for @attr-values -> $avalue {
-            my $velem = self.xml-ser-attr-val2elem: $document.createElement($velem-name), $xml-attr, $avalue;
-            $celem.add: $velem;
-            $velem.setNamespace($URI, $prefix) if $URI;
+            my $velem =
+                self.xml-create-child-element($celem, $xml-attr, :name($xml-attr.value-name($avalue)), :$namespace, :$prefix);
+            self.xml-ser-attr-val2elem: $velem, $xml-attr, $avalue;
         }
     }
 
@@ -477,16 +520,15 @@ class XMLObject does LibXML::Class::Node {
 
         my $document = $elem.ownerDocument;
 
-        $elem.add:
-            my LibXML::Element:D $celem = $document.createElement($xml-attr.xml-name);
-        my ($URI, $prefix) = $xml-attr.maybe-inherit-ns($elem, self);
+        my ($namespace, $prefix) = $xml-attr.maybe-inherit-ns(:from(self));
+        my $celem = self.xml-create-child-element($elem, $xml-attr, :$namespace, :$prefix);
 
-        $xml-attr.xml-apply-ns($celem, :$URI, :$prefix);
+        $xml-attr.xml-apply-ns($celem, :$namespace, :$prefix);
 
         for %attr-values.sort -> (:key($vname), :$value) {
             my LibXML::Element:D $velem =
-                self.xml-ser-attr-val2elem: $celem.add($document.createElement($vname)), $xml-attr, $value;
-            $velem.setNamespace($URI, $prefix) if $URI;
+                self.xml-create-child-element($celem, $xml-attr, :name($vname), :$namespace, :$prefix);
+            self.xml-ser-attr-val2elem: $velem, $xml-attr, $value;
         }
     }
 
@@ -498,34 +540,15 @@ class XMLObject does LibXML::Class::Node {
         my $document = $elem.ownerDocument;
         my $attr-type := $xml-attr.type;
 
-        # Element name rules:
-        # 1. explicitly defined with xml-elem
-        # 2. attribute name for basic type values
-        # 3. explicitly defined for value type if it is an xml-element
-        # 4. type name for a non-basic type
-        my $elem-name =
-            $xml-attr.has-xml-name
-                || ($attr-type =:= Any | Mu)
-                || ($attr-type !~~ XMLRepresentation)
-                || $attr-value ~~ BasicType
-            ?? $xml-attr.xml-name
-            !! $attr-value ~~ LibXML::Class::Node
-                ?? $attr-value.xml-name
-                !! $attr-value.^shortname;
+        my (Str $namespace, Str $prefix) = $xml-attr.maybe-inherit-ns(:from(self));
 
-        my ($URI, $prefix) = $xml-attr.maybe-inherit-ns($elem, self);
+        my LibXML::Element:D $celem =
+            $xml-attr.container
+                ?? self.xml-create-child-element($elem, $xml-attr, :name($xml-attr.container-name), :$namespace, :$prefix)
+                !! $elem;
 
-        my LibXML::Element:D $attr-elem = $document.createElement($elem-name);
-        my LibXML::Element:D $celem = $attr-elem;
-
-        if $xml-attr.container -> $cname {
-            $celem = $document.createElement($cname);
-            $celem.add: $attr-elem;
-            $xml-attr.xml-apply-ns($celem, :$URI, :$prefix);
-        }
-
-        $elem.add: $celem;
-        $xml-attr.xml-apply-ns($attr-elem, :$URI, :$prefix);
+        my LibXML::Element:D $attr-elem =
+            self.xml-create-child-element($celem, $xml-attr, :name($xml-attr.value-name($attr-value)), :$namespace, :$prefix);
 
         self.xml-ser-attr-val2elem: $attr-elem, $xml-attr, $attr-value;
     }
@@ -536,11 +559,7 @@ class XMLObject does LibXML::Class::Node {
         }
     }
 
-    method xml-to-element( ::?CLASS:D:
-                           LibXML::Element:D $elem,
-                           LibXML::Class::Config:D :$config )
-        is implementation-detail
-    {
+    method xml-to-element(::?CLASS:D: LibXML::Element:D $elem --> LibXML::Element:D) is implementation-detail {
         self.xml-apply-ns($elem);
 
         $.xml-unused andthen .map: -> $ast {
@@ -558,6 +577,8 @@ class XMLObject does LibXML::Class::Node {
         for self.xml-serialize-stages -> $stage {
             self."$stage"($elem);
         }
+
+        $elem
     }
 
     method xml-new-dctx(*%profile) {
@@ -663,18 +684,23 @@ class XMLObject does LibXML::Class::Node {
     }
 
     proto method to-xml(::?CLASS:D: |) {*}
-    multi method to-xml(::?CLASS:D: LibXML::Document $doc? is copy, Str :$name, *%profile) {
+    multi method to-xml(::?CLASS:D: Str :$name, *%profile) {
         self.xml-config-context: |%profile, {
-            $doc //= LibXML::Document.new(:config(.libxml-config));
-            $doc.documentElement = self.to-xml($doc.createElement($name // $.xml-name));
+            my LibXML::Document:D $doc .= new(:config(.libxml-config));
+            $doc.documentElement = samewith($doc, :$name);
             $doc
+        }
+    }
+    multi method to-xml(::?CLASS:D: LibXML::Document:D $doc, Str :$name, *%profile) {
+        self.xml-config-context: |%profile, {
+            my $elem = $doc.createElement($name // $.xml-name);
+            self.xml-to-element($elem)
         }
     }
     multi method to-xml(::?CLASS:D: LibXML::Element:D $elem, *%profile) {
         self.xml-config-context: |%profile, {
-            self.xml-to-element($elem, :config($_))
+            self.xml-to-element($elem)
         }
-        $elem
     }
 }
 
@@ -682,6 +708,10 @@ our role XMLRepresentation does LibXML::Class::XML is XMLObject {
     method xml-build-name {
         (::?CLASS.^xml-name if ::?CLASS.HOW ~~ LibXML::Class::HOW::Element) // ::?CLASS.^shortname
     }
+
+    proto method xml-name {*}
+    multi method xml-name(::?CLASS:U:) { self.xml-build-name }
+    multi method xml-name(::?CLASS:D:) { nextsame }
 
     method xml-config-defaults {
         ::?CLASS.^xml-config-defaults
@@ -715,11 +745,11 @@ our role XMLRepresentation does LibXML::Class::XML is XMLObject {
         }
 
         for $dctx.unclaimed-children -> LibXML::Element:D $elem {
-            $dctx.attr-for-elem: $elem, -> LibXML::Class::Attr::XMLish:D $attr, Str:D $nsURI {
-                my $value-elems := self.xml-decontainerize($elem, $attr, $nsURI, :trim);
+            $dctx.attr-for-elem: $elem, -> LibXML::Class::Attr::XMLish:D $attr, Str:D $namespace {
+                my $value-elems := self.xml-decontainerize($elem, $attr, $namespace, :trim);
 
                 # Validate xml:any by making sure number of XML elements matches attribute declaration.
-                if $attr.xml-any {
+                if $attr.is-any {
                     if $attr.sigil ne '@' && $value-elems.elems > 1 {
                         $dctx.config.alarm:
                             LibXML::Class::X::Deserialize::BadNode.new(
@@ -839,15 +869,17 @@ class XMLSequence does Positional does Iterable {
             @desc = @desc.grep({ $elem-ns ~~ $^desc.ns });
         }
 
+        my $xml-config = $.xml-config;
+
         if !@desc {
-            $.xml-config.alert:
+            $xml-config.alert:
                 LibXML::Class::X::Serialize::Impossible.new(
                     :what($item),
                     :why('the type is not registered with <' ~ $elem.localName ~ '>'));
             return Nil;
         }
         elsif @desc > 1 {
-            $.xml-config.alert:
+            $xml-config.alert:
                 LibXML::Class::X::Serialize::Impossible.new(
                     :what($item),
                     :why('too many declarations found for the type registered with <' ~ $elem.localName ~ '>'));
@@ -860,7 +892,7 @@ class XMLSequence does Positional does Iterable {
 
         # This object cannot carry objects of types not registered with specific XML names.
         unless self.xml-seq-either-any {
-            $.xml-config.alert:
+            $xml-config.alert:
                 LibXML::Class::X::Serialize::Impossible.new(
                     :what($item),
                     :why('<' ~ $elem.localName ~ '> is not xml-any, but the type has no associated name'));
@@ -869,24 +901,23 @@ class XMLSequence does Positional does Iterable {
 
         # If the descriptor found doesn't have xml-name then it was a bare type registered with an xml-any type. We'd
         # need to pull the name with config's ns-map.
-
-        my $ns = $desc.ns // $elem.namespaceURI;
-        without my $ns-map = $.xml-config.ns-map-type($item.WHAT, :$ns) {
-            $.xml-config.alert:
+        my $ns = $desc.xml-guess-default-ns(:resolve($elem)) // $elem.namespaceURI // "";
+        without my $ns-map = $xml-config.ns-map-type($item.WHAT, :$ns) {
+            $xml-config.alert:
                 LibXML::Class::X::Serialize::Impossible.new(
                     :what($item),
-                    :why('cannot find a name for the type in config for sequential <' ~ $elem.localName ~ '>'));
+                    :why("no XML name found in config's ns-map for sequential <" ~ $elem.localName ~ "> and namespace '$ns'"));
             return Nil
         }
 
-        $desc.clone: :$ns, :xml-name($ns-map.xml-name)
+        $desc.clone: :xml-default-ns($ns), :xml-name($ns-map.xml-name)
     }
 
     proto method xml-serialize-item(LibXML::Element:D, |) {*}
 
-    multi method xml-serialize-item(LibXML::Element:D $elem, ::?CLASS:D $item) {
-        my $name = self.xml-seq-desc-for-type($item) andthen .xml-name orelse Nil;
-        $item.to-xml: $elem.ownerDocument, :$name
+    multi method xml-serialize-item(LibXML::Element:D $elem, XMLObject:D $item) {
+        my LibXML::Class::ItemDescriptor:D $desc = self!xml-ser-guess-descriptor($elem, $item);
+        $item.to-xml: self.xml-create-child-element($elem, $desc)
     }
 
     multi method xml-serialize-item(LibXML::Element:D $elem, BasicType $item) {
@@ -895,8 +926,7 @@ class XMLSequence does Positional does Iterable {
         }
 
         # We know the xml name for this item
-        my LibXML::Element:D $item-elem =
-            $elem.ownerDocument.createElement($desc.xml-name, |(:href($_) with $desc.ns));
+        my LibXML::Element:D $item-elem = self.xml-create-child-element($elem, $desc);
         my $str = self.xml-type-to-str($item);
         with $desc.value-attr -> $attr-name {
             $item-elem.setAttribute($attr-name, $str);
@@ -910,18 +940,19 @@ class XMLSequence does Positional does Iterable {
     multi method xml-serialize-item(LibXML::Element:D $elem, Mu $item) {
         my $desc = self!xml-ser-guess-descriptor($elem, $item);
         # Don't XMLize with a custom name if there is one. Stick to defaults to avoid side effects.
-        $.xml-config.xmlize($item).to-xml($elem.ownerDocument, :name($desc.xml-name // Nil))
+        my $item-elem =
+            $*LIBXML-CLASS-CONFIG.xmlize($item, XMLRepresentation).to-xml($elem.ownerDocument, :name($desc.xml-name // Nil));
+        $elem.add: $item-elem;
+        $item-elem
     }
 
     method xml-to-element-seq(LibXML::Element:D $elem) {
         my Iterator:D $iter = self.iterator;
+        my $xml-config = $.xml-config;
         loop {
             last if (my Mu $item := $iter.pull-one) =:= IterationEnd;
-            with self.xml-serialize-item($elem, $item) -> LibXML::Element:D $child {
-                $elem.appendChild: $child;
-            }
-            else {
-                $.xml-config.alert:
+            without self.xml-serialize-item($elem, $item) {
+                $xml-config.alert:
                     LibXML::Class::X::Serialize::Impossible.new(:what($item), :why("no known serialization method"));
             }
         }
@@ -947,10 +978,10 @@ class XMLSequence does Positional does Iterable {
         my LibXML::Class::ItemDescriptor $desc = self.xml-seq-desc-for-elem($elem);
 
         if !$desc && $!xml-is-any {
-            unless (my \item-type = $.xml-config.ns-map($elem)) =:= Nil {
+            unless (my \item-type = $*LIBXML-CLASS-CONFIG.ns-map($elem)) =:= Nil {
                 # When succeed in mapping an element into a type for xml-any try to go back to the registry and locate
                 # a descriptor for the type.
-                $desc = self.xml-seq-desc-for-type(item-type);
+                $desc = self!xml-ser-guess-descriptor($elem, item-type);
             }
         }
 
@@ -1039,7 +1070,6 @@ BEGIN {
 
         typeobj.HOW does LibXML::Class::HOW::ElementSeq[how-role];
         my Mu $seq-how := typeobj.HOW;
-        my Str $ns = $seq-how.xml-guess-default-ns;
         my @item-desc;
 
         for child-types -> \ctype {
@@ -1050,14 +1080,17 @@ BEGIN {
                     # default naemspace, for example. And, yet, must not be able to use xml-name, not even by accident.
                     @item-desc.push:
                         LibXML::Class::ItemDescriptor.new(
-                            :$ns,
                             |validate-args(.value.List.Capture),
                             :xml-name(.key),
                             :$seq-how);
                 }
+                when Positional:D {
+                    # Item declared as (XMLElementType, :ns(...))
+                    @item-desc.push: LibXML::Class::ItemDescriptor.new(|validate-args(.List.Capture), :$seq-how);
+                }
                 when Mu:U {
                     if .HOW ~~ LibXML::Class::HOW::Element {
-                        @item-desc.push: LibXML::Class::ItemDescriptor.new: $_, :xml-name(.^xml-name), :$seq-how, :$ns;
+                        @item-desc.push: LibXML::Class::ItemDescriptor.new: $_, :xml-name(.^xml-name), :$seq-how;
                     }
                     elsif $any === NOT-SET {
                         LibXML::Class::X::Sequence::NotAny.new(:type(typeobj),
@@ -1066,7 +1099,7 @@ BEGIN {
                     }
                     else {
                         @item-desc.push:
-                            LibXML::Class::ItemDescriptor.new: $_, :$seq-how, :$ns;
+                            LibXML::Class::ItemDescriptor.new: $_, :$seq-how;
                     }
                 }
                 default {
@@ -1084,9 +1117,11 @@ BEGIN {
 
     my sub no-extra-nameds(%named) {
         if %named {
+            my $singular = %named.keys == 1;
             LibXML::Class::X::Trait::Argument.new(
-                :why('trait ' ~ $*LIBXML-CLASS-TRAIT
-                    ~ " doesn't support arguments '" ~ %named.keys.sort.join("', '") ~ "'") ).throw
+                :$singular,
+                :why("named" ~ ($singular ?? "" !! "s")
+                    ~ " '" ~ %named.keys.sort.join("', '") ~ "'") ).throw
         }
     }
 
@@ -1180,7 +1215,14 @@ BEGIN {
         $class.^xml-set-config-defaults: %config-defaults;
     }
 
-    multi sub typeobj-as-element(Mu :$role! is raw, Bool :$implicit, :$ns, :$sequence, Mu :$any = NOT-SET, *%named) {
+    multi sub typeobj-as-element( Mu :$role! is raw,
+                                  Str :$xml-name,
+                                  Bool :$implicit,
+                                  :$ns,
+                                  :$sequence,
+                                  Mu :$any = NOT-SET,
+                                  *%named )
+    {
         no-extra-nameds(%named);
 
         if $role.HOW ~~ LibXML::Class::HOW::ElementRole {
@@ -1196,6 +1238,7 @@ BEGIN {
 
         $role.^xml-set-ns-defaults($_) with $ns;
         $role.^xml-set-explicit(!$_) with $implicit;
+        $role.^xml-set-name($_) with $xml-name;
     }
 
     multi sub trait_mod:<is>(Mu:U \typeobj, :$xml-element!) is export {

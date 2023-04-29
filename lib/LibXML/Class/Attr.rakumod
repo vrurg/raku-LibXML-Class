@@ -1,8 +1,10 @@
 use v6.e.PREVIEW;
 unit module LibXML::Class::Attr;
+use experimental :will-complain;
 
 use LibXML::Element;
 
+use LibXML::Class::Attr::Node;
 use LibXML::Class::Attr::XMLish;
 use LibXML::Class::HOW::AttrContainer;
 use LibXML::Class::Node;
@@ -12,10 +14,10 @@ use LibXML::Class::XML;
 use LibXML::Class::Utils;
 
 # For attributes mapping into XML element attributes
-class XMLAttribute does LibXML::Class::Attr::XMLish {
+class XMLAttribute does LibXML::Class::Attr::Node {
     submethod TWEAK {
         if self.xml-namespaces {
-            LibXML::Class::X::Namespace::Definition.new(
+            LibXML::Class::X::NS::Definition.new(
                 :why('prefix declaration is not allowed with xml-attribute ' ~ $!attr.name),
                 :what($_)
                 ).throw
@@ -26,33 +28,54 @@ class XMLAttribute does LibXML::Class::Attr::XMLish {
 }
 
 # Name of the container element to wrap a list of sub-elements into.
-role XMLContainer {
-    has Str $.container;
+my subset AttrContainer of Any
+    will complain { ":container of attribute's xml-element must either be a string or a boolean, not a " ~ .^name }
+    where Str | Bool;
 
-    method outer-name { $!container || $.xml-name }
+role XMLContainer {
+    has AttrContainer $.container = False;
+
+    method outer-name { self.container-name || $.xml-name }
+    # Name of the container XML element
+    method container-name {
+        $!container
+            ?? ($!container ~~ Str ?? $!container !! $.xml-name)
+            !! Nil
+    }
+    # Name of the actual value XML element. If $value-type is passed in then it might be used to determine the name.
+    method value-name(Mu $value is raw = Nil) {
+        my \name-src = $value eqv Nil ?? $.type !! $value;
+        $!container && $!container ~~ Bool
+            ?? (name-src ~~ BasicType
+                ?? Nil
+                !! (name-src ~~ LibXML::Class::XML ?? name-src.xml-name !! name-src.^shortname))
+            !! $.xml-name
+    }
 }
 
 # For attributes mapping into XML elements
-class XMLValueElement does LibXML::Class::Attr::XMLish does XMLContainer {
+class XMLValueElement does LibXML::Class::Attr::Node does XMLContainer {
     # XML attribute which holds simple tag value:
     # <tag val="value"/> if $.value-attr is set to "val"
     # <tag>value</tag> if $.value-attr is not set
     has Str $.value-attr;
 
     # Is it a xs:any kind of element? If so, the final type would be looked up in namespace-based mapping in config.
-    has Bool $.any;
+    has Bool $!any is built;
 
-    method xml-build-name {
-        my \nominal-type = self.nominal-type;
-        (!$!any && # xml:any kind of attribute must not use attribute's type name even if it's an xml-element
-            ((nominal-type.HOW ~~ LibXML::Class::Node && nominal-type.HOW.xml-name)
-                || (nominal-type !~~ BasicType && nominal-type.^shortname)))
-            || self.LibXML::Class::Attr::XMLish::xml-build-name
-    }
+#    method xml-build-name {
+#        my \nominal-type = self.nominal-type;
+#        (!$!any && # xml:any kind of attribute must not use attribute's type name even if it's an xml-element
+#            ((nominal-type.HOW ~~ LibXML::Class::Node && nominal-type.HOW.xml-name)
+#                || (nominal-type !~~ BasicType && nominal-type.^shortname)))
+#            || self.LibXML::Class::Attr::XMLish::xml-build-name
+#    }
 
     method kind is pure { "value element" }
 
     method nominal-type is raw { nominalize-type($.type) }
+
+    method is-any { $!any }
 }
 
 # For attributes mapping into XML #text
@@ -116,12 +139,40 @@ multi sub mark-attr-xml( Attribute:D $attr,
     samewith($attr, :$descriptor-class, :@pos, :%profile)
 }
 
+# Make sure only certain nameds are used with attribute traits.
+my proto sub no-extra-nameds(Mu, |) {*}
+multi sub no-extra-nameds(XMLValueElement \kind, :value-attr($), :any($), :container($), :ns($), :xml-name($), *%rest) {
+    nextwith(kind, |%rest)
+}
+multi sub no-extra-nameds(XMLAttribute \kind, :ns($), :xml-name($), *%rest) {
+    nextwith(kind, |%rest)
+}
+multi sub no-extra-nameds(XMLTextNode \kind, :trim($), *%rest) {
+    nextwith(kind, |%rest)
+}
+multi sub no-extra-nameds( LibXML::Class::Attr::XMLish,
+                           :serializer($), :deserializer($), :lazy($), :inherit($),
+                           *%rest )
+{
+    if %rest {
+        my $singular = %rest.keys == 1;
+        LibXML::Class::X::Trait::Argument.new(
+            :$singular,
+            :why("named" ~ ($singular ?? "" !! "s")
+                ~ " '"
+                ~ %rest.keys.sort.join("', '")
+                ~ "'") ).throw
+    }
+}
+
 multi sub mark-attr-xml( Attribute:D $attr,
                          :$descriptor-class! is raw,
                          :@pos,
                          :%profile is copy )
 {
     my \pkg = $*PACKAGE;
+
+    no-extra-nameds($descriptor-class, |%profile);
 
     if @pos {
         LibXML::Class::X::Trait::Argument.new(:why("too many positionals in trait arguments")).throw
@@ -131,13 +182,20 @@ multi sub mark-attr-xml( Attribute:D $attr,
         LibXML::Class::X::Trait::NonXMLType.new(:trait-name($*LIBXML-CLASS-TRAIT), :type(pkg)).throw
     }
 
-    if pkg.^xml-get-attr($attr, :local) {
-        LibXML::Class::X::Redeclaration::Attribute.new(:$attr).throw
+    if pkg.^xml-get-attr($attr, :local) -> $desc {
+        LibXML::Class::X::Redeclaration::Attribute.new(:$desc).throw
+    }
+
+    with %profile<container> {
+        if $_ && $_ ~~ Bool && $attr.type ~~ BasicType {
+            LibXML::Class::X::Trait::Argument.new(
+                :why(":container must specify an XML name when attribute is '" ~ $attr.type.^name ~ "'")).throw
+        }
     }
 
     # Default basic type attributes to non-lazy mode.
     %profile<lazy> //= False if $attr.type ~~ BasicType;
     %profile<value-attr> = (%profile<attr>:delete) if %profile<attr>:exists;
 
-    pkg.^xml-attr-register: $descriptor-class.new(|%profile, :$attr);
+    pkg.^xml-attr-register: $descriptor-class.new(|%profile, :declarant(pkg), :$attr);
 }

@@ -1,0 +1,172 @@
+use v6.e.PREVIEW;
+use Test::Async;
+
+use LibXML::Class;
+use LibXML::Class::Config :types;
+
+my constant DEFAULT-NS = "http://app.namespace";
+my constant ITEM-NS = "http://item.namespace";
+my constant EXTRA-NS = "http://extra.namespace";
+
+# Valid :sequence declarations:
+# :sequence( ElemType1, ElemType2 )
+# :sequence( :xml-name(ElemType1), ElemType2 )
+# :sequence( ABasicType ) when xml-element(:any, :sequence(...))
+# :sequence( :xml-name(Int) )
+# :sequence( :xml-name(Int, :attr<id>, :ns(...)) )
+# :sequence( (Type, |%named-args) )
+
+plan 4;
+
+subtest "Base serialization" => {
+    plan 1;
+
+    my class Item1 is xml-element<item-a> {
+        has Str:D $.info is xml-element is required;
+        has Str:D $.ref is xml-attribute is required;
+    }
+
+    my class Item2 is xml-element<item-b> {
+        has Str:D $.data is xml-element is required;
+        has Str:D $.id is xml-attribute is required;
+    }
+
+    my class Details {
+        has UInt:D $.start-idx is required;
+        has Str:D $.start-id is required;
+    }
+
+    my class XMLSeq
+        is xml-element(
+            :sequence(
+                Item1,
+                :rec(Item2),
+                :idx(UInt),
+                :excl(Str, :attr<id>) ))
+    {
+        has Str:D $.descr is xml-attribute is required;
+        has Details:D $.details is xml-element is required;
+    }
+
+    my $xs = XMLSeq.new: :descr('test sequence'), :details(Details.new(:start-idx(1), :start-id("id1")));
+
+    $xs.push: 0;
+    $xs.push: Item1.new(:info("first"), :ref("id0"));
+    $xs.push: Item1.new(:info("second"), :ref("id1"));
+    $xs.push: Item2.new(:data("test 1"), :id<id0>);
+    $xs.push: 1, 2, 3;
+    $xs.push: Item2.new(:data("test 2"), :id<id1>);
+    $xs.push: Item1.new(:info("third"), :ref("id1"));
+    $xs.push: Item2.new(:data("test 3"), :id<id2>);
+    $xs.push: "id100", "id101";
+
+    my $expected = "#xml" => [:XMLSeq([:descr("test sequence"), :details([:start-idx("1"), :start-id("id1")]), :idx(["0"]), :item-a([:ref("id0"), :info(["first"])]), :item-a([:ref("id1"), :info(["second"])]), :rec([:id("id0"), :data(["test 1"])]), :idx(["1"]), :idx(["2"]), :idx(["3"]), :rec([:id("id1"), :data(["test 2"])]), :item-a([:ref("id1"), :info(["third"])]), :rec([:id("id2"), :data(["test 3"])]), :excl([:id("id100")]), :excl([:id("id101")])])];
+    cmp-deeply $xs.to-xml.ast, $expected, "simple sequence serialized";
+}
+
+subtest "Namespaced" => {
+    plan 1;
+
+    my class Item1 is xml-element<item-a> {
+        has Str:D $.info is xml-element is required;
+        has Str:D $.ref is xml-attribute(:ns(EXTRA-NS)) is required;
+    }
+
+    my class Item2 is xml-element(<item-b>, :ns(ITEM-NS)) {
+        has Str:D $.data is xml-element is required;
+        has Str:D $.id is xml-attribute(:ns(EXTRA-NS)) is required;
+    }
+
+    my class Details {
+        has UInt:D $.start-idx is required;
+        has Str:D $.start-id is required;
+    }
+
+    my class XMLSeq
+        is xml-element(
+            :sequence(Item1, :rec(Item2), :idx(UInt), :excl(Str, :ns(:extr))),
+            :ns(DEFAULT-NS, :extr(EXTRA-NS))
+            )
+    {
+        has Str:D $.descr is xml-attribute is required;
+        has Details:D $.details is xml-element is required;
+    }
+
+    my $xs = XMLSeq.new: :descr('test sequence'), :details(Details.new(:start-idx(1), :start-id("id1")));
+
+    $xs.push: 0;
+    $xs.push: Item1.new(:info("first"), :ref("id0"));
+    $xs.push: Item1.new(:info("second"), :ref("id1"));
+    $xs.push: Item2.new(:data("test 1"), :id<id0>);
+    $xs.push: 1, 2, 3;
+    $xs.push: Item2.new(:data("test 2"), :id<id1>);
+    $xs.push: Item1.new(:info("third"), :ref("id1"));
+    $xs.push: Item2.new(:data("test 3"), :id<id2>);
+    $xs.push: "id201", "id202";
+
+    my $expected = "#xml" => [:XMLSeq([:xmlns("http://app.namespace"), "xmlns:extr" => "http://extra.namespace", :descr("test sequence"), :details([:start-idx("1"), :start-id("id1")]), :idx(["0"]), :item-a(["extr:ref" => "id0", :info(["first"])]), :item-a(["extr:ref" => "id1", :info(["second"])]), :rec([:xmlns("http://item.namespace"), "extr:id" => "id0", :data(["test 1"])]), :idx(["1"]), :idx(["2"]), :idx(["3"]), :rec([:xmlns("http://item.namespace"), "extr:id" => "id1", :data(["test 2"])]), :item-a(["extr:ref" => "id1", :info(["third"])]), :rec([:xmlns("http://item.namespace"), "extr:id" => "id2", :data(["test 3"])]), "extr:excl" => ["id201"], "extr:excl" => ["id202"]])];
+    cmp-deeply $xs.to-xml.ast, $expected, "simple sequence serialized";
+}
+
+subtest "XML:any" => {
+    plan 3;
+
+    my LibXML::Class::Config:D $config .= new:
+        ns-map => (
+            "" => (
+                "number" => Num,
+            ),
+            (DEFAULT-NS) => (
+                "numeric" => Num,
+                "stringy" => Str,
+            ),
+            (EXTRA-NS) => (
+                "size" => Int,
+            )
+        );
+
+    my class XSAny is xml-element(
+        :any,
+        :ns(DEFAULT-NS),
+        :sequence(
+            Str, Num, (Int, :attr<value>, :ns(EXTRA-NS))
+        )) {}
+
+    my $xs-any = XSAny.new;
+
+    $xs-any.push: 1.234e-2;
+    $xs-any.push: "some text";
+    $xs-any.push: 42;
+    # say $xs-any.to-xml(:$config).Str(:format);
+    # say $xs-any.to-xml(:$config).ast.raku;
+    my $expected = "#xml" => [:XSAny([:xmlns("http://app.namespace"), :numeric(["0.01234"]), :stringy(["some text"]), :size([:xmlns("http://extra.namespace"), :value("42")])])];
+    cmp-deeply $xs-any.to-xml(:$config).ast, $expected, "xml:any sequence serialized OK";
+
+    # Different namespace must give different element name
+    $xs-any = XSAny.new: xml-default-ns => "";
+    $xs-any.push: 42.12e0;
+    # say $xs-any.to-xml(:$config).Str(:format);
+    # say $xs-any.to-xml(:$config).ast.raku;
+    $expected = "#xml" => [:XSAny([:number(["42.12"])])];
+    cmp-deeply $xs-any.to-xml(:$config).ast, $expected, "item element name of xml:any sequence depends on namespace";
+
+    throws-like {
+            $xs-any = XSAny.new: xml-default-ns => "";
+            $xs-any.push: "aa";
+            $xs-any.to-xml(config => $config.clone(severity => STRICT))
+        },
+        LibXML::Class::X::Serialize::Impossible,
+        :message(/:s an instance of Str .* no XML name found .* in namespace \'\'/),
+        "serialization fails with strict severity and no basic type mapping";
+}
+
+subtest "Errors" => {
+    plan 1;
+
+    throws-like
+        'class BadSeq is xml-element(:sequence(Num)) {}',
+        LibXML::Class::X::Sequence::NotAny,
+        "bare basic type cannot be used with a non-any sequence";
+}
+
+done-testing;

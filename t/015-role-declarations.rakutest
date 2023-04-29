@@ -6,10 +6,12 @@ use LibXML::Class::HOW::Element;
 
 constant TEST-NS = "http://rolish.namespace";
 
-subtest "XML role to plain class" => {
-    plan 4;
+plan 2;
 
-    my role XMLRole is xml-element {
+subtest "XML role to plain class" => {
+    plan 5;
+
+    my role XMLRole is xml-element("role-test") {
         has Str $.attr1 is xml-attribute;
         has Num $.attr2 is xml-element;
     }
@@ -22,9 +24,13 @@ subtest "XML role to plain class" => {
     isa-ok Foo.HOW, LibXML::Class::HOW::Element, "class' HOW type";
     ok Foo.^xml-is-explicit, 'auto-xmlized class is explicit';
     cmp-deeply Foo.^xml-attrs.keys, XMLRole.^candidates.head.^xml-attrs.keys, "only attributes from xml-element role";
+
+    is XMLRole.new.xml-name, "role-test", "pun of a role uses its XML name";
 }
 
 subtest "Namespacng in role declarations" => {
+    plan 7;
+
     my role Pfx-Only-Role is xml-element(:ns(:pfx(TEST-NS))) {
         has $.role-attr is xml-element(:ns(:pfx));
     }
@@ -34,15 +40,22 @@ subtest "Namespacng in role declarations" => {
     my $pfx-from-role = Pfx-From-Role.new;
     is $pfx-from-role.xml-guess-default-ns, TEST-NS, "xml-element class uses its role namespaces too";
 
-    my role NS-Role is xml-element(:ns(TEST-NS)) { }
-    my class NS-From-Role is xml-element does NS-Role { }
-    my $ns-from-role = NS-From-Role.new;
-    is $ns-from-role.xml-guess-default-ns, TEST-NS, "xml-element class uses role's default namespace";
+    my role Pfx-Consumer does Pfx-Only-Role { }
+    my class Pfx-From-Indirect-Role is xml-element( :ns(:pfx) ) does Pfx-Consumer {}
 
-    my role Fubar is xml-element(:ns("other-ns")) {}
-    throws-like 'my class NS-Conflict is xml-element does NS-Role does Fubar { }',
-                LibXML::Class::X::Namespace::Conflicting,
-                "consuming roles with different default namespaces throws";
+    my $pfx-from-indirect-role = Pfx-From-Indirect-Role.new;
+    is $pfx-from-indirect-role.xml-guess-default-ns, TEST-NS, "xml-element class uses its indirect role namespaces too";
+
+    my role NS-Role is xml-element(:ns("http://default", :bar, :bar(TEST-NS), :foo<http://foo.namespace>)) {}
+
+    my $ns-role-pun = NS-Role.new;
+    is $ns-role-pun.xml-guess-default-ns, TEST-NS, "role pun uses the default namespace";
+    is $ns-role-pun.xml-default-ns-pfx, 'bar', "role pun uses the default namespace prefix";
+    is $ns-role-pun.xml-default-ns, 'http://default', "role pun uses the default namespace";
+    is $ns-role-pun.xml-namespaces<foo>, 'http://foo.namespace', "namespace prefix is imported";
+
+    my $pfx-only-pun = Pfx-Only-Role.new;
+    nok $pfx-only-pun.xml-default-ns, "default namespace is not popping up from nowhere in a pun";
 }
 
 done-testing;

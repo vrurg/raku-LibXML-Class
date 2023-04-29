@@ -1,0 +1,54 @@
+use v6.e.PREVIEW;
+use Test::Async;
+use LibXML::Class;
+use LibXML::Class::Config;
+
+my constant TEST-NS1 = "http://test1.namespace";
+my constant TEST-NS2 = "http://test2.namespace";
+my constant TEST-NS3 = "http://test3.namespace";
+
+subtest "Simple" => {
+    my class Foo is xml-element( :ns(TEST-NS1, :foo(TEST-NS2)) ) {
+        has $.foo is xml-attribute;
+    }
+
+    my class Bar is xml-element( :ns(:foo, :bar(TEST-NS3)) ) is Foo {
+        has $.bar is xml-element;
+    }
+
+    my $bar = Bar.new;
+
+    is $bar.xml-guess-default-ns, TEST-NS2, "inheritance picks parent namespaces";
+    nok $bar.xml-default-ns.defined, "subclass doesn't inherit default namespace";
+
+    my class Fubar is xml-element is Bar {
+        has $.fubar is xml-element;
+    }
+
+    my $fubar = Fubar.new(:12foo, :bar("Bar"), :fubar(pi));
+
+    nok $fubar.xml-default-ns-pfx.defined, "subclass doesn't inherit parent's default namespace prefix";
+
+    is Fubar.^xml-attrs(:!local).elems, 3, "a subclass sees XML attributes from all parents";
+    cmp-deeply Fubar.^xml-attrs(:!local).map(*.key).List, <$!foo $!bar $!fubar>, "attribute order";
+
+    my class Plain is Fubar {
+        has $.attr;
+    }
+
+    nok Plain.^parents(:local).any === LibXML::Class::XMLObject,
+        "subclassing an xml-element doesn't produce an xml-element class";
+    isa-ok Plain.xml-class, Fubar,
+           "xml-element parent responsible for de-/serializing is available via .xml-class method";
+
+    my class Baz is xml-element( :ns(:bar) ) is Plain {
+        has $.baz is xml-attribute<BAZ>;
+    }
+
+    is Baz.HOW.xml-guess-default-ns, TEST-NS3, "subclassing via a non-xml-element still sees parent's namespace prefix";
+    is Baz.^xml-attrs(:!local).elems, 4, "indirect subclassing doesn't lose parent attributes";
+    cmp-deeply Baz.^xml-attrs(:!local).map(*.key).List, <$!foo $!bar $!fubar $!baz>,
+        "indirect subclassing still preserves the order of attributes";
+}
+
+done-testing;

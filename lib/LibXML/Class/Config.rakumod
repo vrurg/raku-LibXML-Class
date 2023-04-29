@@ -8,6 +8,7 @@ use LibXML::Element;
 
 use LibXML::Class::HOW::Element;
 use LibXML::Class::Node;
+use LibXML::Class::Types;
 use LibXML::Class::X;
 use LibXML::Class::XML;
 
@@ -59,6 +60,8 @@ method !build-ns-map-types {
             %idx.append: (%!ns-map{$ns}{$xml-name}) => NSMapType.new(:$ns, :$xml-name);
         }
     }
+
+    %idx
 }
 
 multi method COERCE(%cfg) { self.new(|%cfg) }
@@ -121,10 +124,31 @@ multi method xmlize(Mu:D $obj, LibXML::Class::XML:U $with, Str :$xml-name) {
         !! samewith($obj.WHAT, $with, :$xml-name) ).clone-from($obj)
 }
 
+method !install-into-ns-map(Str:D $namespace, Str:D $xml-name, Mu $type) {
+    if %!ns-map{$namespace}{$xml-name}:exists {
+        LibXML::Class::X::Config::TypeDuplicate.new(:$type, :$xml-name, :$namespace).throw
+    }
+
+    my $how := $type.HOW;
+    if $how ~~ LibXML::Class::HOW::Element
+        && $type.^xml-default-name ne $xml-name
+        && ($how.xml-default-ns // $how.xml-default-ns-pfx).defined
+        && $!severity != EASY
+    {
+        warn "Default XML name of " ~ $type.^name ~ " differs from its registration name in the namespace map:"
+            ~ "\n    registred as: " ~ $xml-name
+            ~ "\n      default is: " ~ $type.^xml-default-name
+            ~ "\n  This is likely to break de-serialization because the type uses own namespace.";
+    }
+
+    %!ns-map{$namespace}{$xml-name} := $type.WHAT;
+    self!clear-ns-map-types;
+}
+
 my subset NSMapEntry
     of Mu
-    will complain { "expected either an xml-elemen type or a pair of element name and an xml-elemnt type, got " ~ .raku }
-    where { $_ ~~ LibXML::Class::Node || ($_ ~~ Pair:D && .key ~~ Str:D && .value ~~ LibXML::Class::Node:U) };
+    will complain { "expected either an xml-element type or a pair of element name and a type, got " ~ .raku }
+    where { $_ ~~ LibXML::Class::Node || ($_ ~~ Pair:D && .key ~~ Str:D && .value ~~ Mu:U) };
 
 proto method set-ns-map(|) {*}
 
@@ -156,6 +180,12 @@ multi method set-ns-map(%ns-map) {
     }
 }
 
+multi method set-ns-map(@ns-map) {
+    for @ns-map -> $ns-map {
+        samewith(|$ns-map)
+    }
+}
+
 multi method set-ns-map(Str:D $namespace, *@entries, *%map) {
     for @entries -> NSMapEntry $entry {
         samewith $namespace, $entry;
@@ -174,23 +204,8 @@ multi method set-ns-map(Whatever, $, Mu:U $type) {
     LibXML::Class::X::Config::WhateverNS.new(:$type).throw
 }
 
-multi method set-ns-map(Str:D $namespace, Str:D $xml-name, LibXML::Class::XML:U $type) {
-    if %!ns-map{$namespace}{$xml-name}:exists {
-        LibXML::Class::X::Config::TypeDuplicate.new(:$type, :$xml-name, :$namespace).throw
-    }
-
-    if $type.^xml-default-name ne $xml-name && $!severity != EASY {
-        warn "Default XML name of " ~ $type.^name ~ " differs from its registration name in the namespace map:\n"
-            ~ "    registred as: " ~ $xml-name
-            ~ "      default is: " ~ $type.^xml-default-name;
-    }
-
-    %!ns-map{$namespace}{$xml-name} := $type;
-    self!clear-ns-map-types;
-}
-
 multi method set-ns-map(Str:D $namespace, Str:D $xml-name, Mu $type) {
-    samewith($namespace, $xml-name, self.xmlize($type, $!xml-repr-role, :$xml-name))
+    self!install-into-ns-map($namespace, $xml-name, $type)
 }
 
 method ns-map(::?CLASS:D: LibXML::Element:D $elem) is raw {
@@ -199,9 +214,15 @@ method ns-map(::?CLASS:D: LibXML::Element:D $elem) is raw {
         orelse Nil
 }
 
-method ns-map-type(::?CLASS:D: Mu:U \typeobj, Str :$ns --> NSMapType) {
-    if (my @variants = (%!ns-map-types{typeobj} // Empty)) > 1 && $ns.defined {
-        @variants = @variants.grep(*.ns eq $ns);
+method ns-map-type(::?CLASS:D: Mu:U \typeobj, Str :namespace(:$ns) --> NSMapType) {
+    my @variants = (%!ns-map-types{typeobj} // ()).grep({ !$ns.defined || .ns eq $ns });
+
+    unless @variants {
+        @variants =
+            %!ns-map-types
+                .pairs
+                .grep(-> $nsmap { typeobj ~~ $nsmap.key })
+                .map({ .value.grep({ !$ns.defined || .ns eq $ns }).Slip });
     }
 
     unless @variants == 1 {

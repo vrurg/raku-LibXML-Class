@@ -14,33 +14,33 @@ has Str:D $.xml-name is mooish(:lazy<xml-build-name>, :predicate);
 method xml-apply-ns( ::?CLASS:D:
                      LibXML::Element:D $dest-elem,
                      Bool:D :$default = True,
-                     Str :$URI is copy,
+                     Str :namespace(:$ns) is copy,
                      Str :$prefix is copy,
                      :$config = $*LIBXML-CLASS-CONFIG
-    --> LibXML::Element:D)
+    --> LibXML::Element:D )
 {
-    for %.xml-namespaces.pairs -> (:key($prefix), :value($URI)) {
-        $dest-elem.setNamespace($URI, $prefix, :!activate);
+    for %.xml-namespaces.pairs -> (:key($prefix), :value($ns)) {
+        $dest-elem.setNamespace($ns, $prefix, :!activate);
     }
 
-    if $default || ($URI // $prefix).defined {
-        without $URI // $prefix {
-            $URI = $.xml-default-ns;
+    if $default || ($ns // $prefix).defined {
+        without $ns // $prefix {
+            $ns = $.xml-default-ns;
             $prefix = $.xml-default-ns-pfx;
         }
-        with $URI {
+        with $ns {
             $dest-elem.setNamespace($_, "");
         }
         with $prefix {
-            with $dest-elem.lookupNamespaceURI($_) -> $pfxURI {
-                $dest-elem.setNamespace: $pfxURI, $_;
+            with $dest-elem.lookupNamespaceURI($_) -> $pfxNS {
+                $dest-elem.setNamespace: $pfxNS, $_;
             }
             else {
                 if $config {
                     $config.alert:
-                        LibXML::Class::X::Namespace::Prefix.new(
-                            :prefix($_),
-                            :what("element <" ~ $dest-elem.name ~ ">")).throw
+                        LibXML::Class::X::NS::Prefix.new(
+                            :$prefix,
+                            :what("element <" ~ $dest-elem.name ~ ">"))
                 }
             }
         }

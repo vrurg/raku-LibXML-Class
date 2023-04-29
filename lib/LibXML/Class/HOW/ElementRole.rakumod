@@ -5,12 +5,14 @@ use LibXML::Class::HOW::AttrContainer;
 use LibXML::Class::HOW::Element;
 use LibXML::Class::HOW::Explicit;
 use LibXML::Class::HOW::Imply;
+use LibXML::Class::HOW::Named;
 use LibXML::Class::Utils;
 use LibXML::Class::NS;
 
+also does LibXML::Class::HOW::AttrContainer;
 also does LibXML::Class::HOW::Explicit;
 also does LibXML::Class::HOW::Imply;
-also does LibXML::Class::HOW::AttrContainer;
+also does LibXML::Class::HOW::Named;
 also does LibXML::Class::NS;
 
 method compose(Mu \obj) is raw {

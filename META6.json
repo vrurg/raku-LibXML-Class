@@ -18,6 +18,7 @@
   "provides": {
     "LibXML::Class": "lib/LibXML/Class.rakumod",
     "LibXML::Class::Attr": "lib/LibXML/Class/Attr.rakumod",
+    "LibXML::Class::Attr::Node": "lib/LibXML/Class/Attr/Node.rakumod",
     "LibXML::Class::Attr::XMLish": "lib/LibXML/Class/Attr/XMLish.rakumod",
     "LibXML::Class::Config": "lib/LibXML/Class/Config.rakumod",
     "LibXML::Class::Document": "lib/LibXML/Class/Document.rakumod",
@@ -28,6 +29,7 @@
     "LibXML::Class::HOW::ElementSeq": "lib/LibXML/Class/HOW/ElementSeq.rakumod",
     "LibXML::Class::HOW::Explicit": "lib/LibXML/Class/HOW/Explicit.rakumod",
     "LibXML::Class::HOW::Imply": "lib/LibXML/Class/HOW/Imply.rakumod",
+    "LibXML::Class::HOW::Named": "lib/LibXML/Class/HOW/Named.rakumod",
     "LibXML::Class::ItemDescriptor": "lib/LibXML/Class/ItemDescriptor.rakumod",
     "LibXML::Class::NS": "lib/LibXML/Class/NS.rakumod",
     "LibXML::Class::Node": "lib/LibXML/Class/Node.rakumod",

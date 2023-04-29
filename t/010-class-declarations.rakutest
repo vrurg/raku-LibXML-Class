@@ -8,12 +8,19 @@ use LibXML::Class::X;
 
 constant TEST-NS = "http://test.namespace";
 
+plan 7;
+
 subtest "Traits" => {
-    plan 18;
+    plan 20;
     for <class role> -> $type-decl {
         eval-lives-ok qq:to<DECL>, "basic xml-element $type-decl declaration";
             my $type-decl Foo is xml-element \{ }
             DECL
+
+        throws-like
+            "my $type-decl Foo is xml-element is xml-element \{ }",
+            LibXML::Class::X::Redeclaration::Type,
+            "double use of xml-element trait throws";
 
         throws-like
             "my $type-decl Foo is xml-element('name', 'garbage') \{ }",
@@ -48,6 +55,19 @@ subtest "Traits" => {
                 "$attr-trait with attribute throws in a non-XMLized $type-decl";
         }
     }
+}
+
+subtest "Naming" => {
+    plan 3;
+
+    my class Foo is xml-element<myname> {}
+
+    is Foo.xml-name, "myname", "class' default XML name comes from the trait";
+    is Foo.new(:xml-name<instanced>).xml-name, "instanced", "custom XML name set with constructor";
+
+    my class Bar is xml-element {}
+
+    is Bar.xml-name, "Bar", "class name is used for XML name when no explicit one";
 }
 
 subtest "Namespacing in class declarations" => {
@@ -93,33 +113,33 @@ subtest "Namespacing in class declarations" => {
 
     throws-like
         'my class BadNS is xml-element(:ns(13)) {}',
-        LibXML::Class::X::Namespace::Definition,
-        'non-string default URI';
+        LibXML::Class::X::NS::Definition,
+        'non-string default namespace';
 
     throws-like
         'my class BadNS is xml-element(:ns("ns1", "ns2")) {}',
-        LibXML::Class::X::Namespace::Definition,
-        'non-single default URI';
+        LibXML::Class::X::NS::Definition,
+        'non-single default namespace';
 
     throws-like
         'my class BadNS is xml-element(:ns(13 => "bad")) {}',
-        LibXML::Class::X::Namespace::Definition,
+        LibXML::Class::X::NS::Definition,
         'non-string namespace prefix';
 
     throws-like
         'my class BadNS is xml-element(:ns((Str) => "bad")) {}',
-        LibXML::Class::X::Namespace::Definition,
+        LibXML::Class::X::NS::Definition,
         'type object namespace prefix';
 
     throws-like
         'my class BadNS is xml-element(:ns(:pfx1, :pfx2)) {}',
-        LibXML::Class::X::Namespace::Definition,
+        LibXML::Class::X::NS::Definition,
         'non-single default prefix';
 
     throws-like
         'my class BadNS is xml-element(:ns(:pfx(13))) {}',
-        LibXML::Class::X::Namespace::Definition,
-        'non-string prefix URI';
+        LibXML::Class::X::NS::Definition,
+        'non-string prefix namespace';
 }
 
 subtest "Attributes" => {
@@ -238,7 +258,7 @@ subtest "Attribute namespacing" => {
 
     throws-like
         'my class BadAttr is xml-element { has $.attr is xml-attribute(:ns(:foo<aa>)); }',
-        LibXML::Class::X::Namespace::Definition,
+        LibXML::Class::X::NS::Definition,
         "no xml-namespaces is allowed for xml-attribute";
 
     # It would be logical to test NS inheriting here, but there is no public API for this functionality. Therefore it
@@ -246,7 +266,7 @@ subtest "Attribute namespacing" => {
 }
 
 subtest "Implicit/Explicit" => {
-    plan 9;
+    plan 10;
 
     my class Implicit-Default is xml-element {
         has Int $.v;
@@ -294,6 +314,16 @@ subtest "Implicit/Explicit" => {
 
     ok Explicit-By-Declaration.^xml-is-explicit, "force-explicit class";
     is Explicit-By-Declaration.^xml-attrs.elems, 0, "force-explicit class does nothing with its attributes";
+
+    subtest "Attribute with reserved 'xml-' name" => {
+        my class Reserved-Name is xml-element(:implicit) {
+            has $.attr;
+            has $.xml-attr;
+        }
+
+        is Reserved-Name.^xml-attrs.elems, 1, "attribute count";
+        cmp-deeply Reserved-Name.^xml-attrs.map(*.key).List, ('$!attr',), "non-reserved name attribute is used";
+    }
 }
 
 subtest "Sequential" => {

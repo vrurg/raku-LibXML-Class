@@ -1,4 +1,6 @@
 .precomp/
 .idea/
+.vscode/
 *.iml
 ._*
+cspell.json

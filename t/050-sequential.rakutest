@@ -6,7 +6,9 @@ use LibXML::Class::Config :types;
 
 my constant DEFAULT-NS = "http://app.namespace";
 my constant ITEM-NS = "http://item.namespace";
-my constant EXTRA-NS = "http://extra.namespace";
+my constant TEST-NS1 = "http://extra.namespace";
+my constant TEST-NS2 = "http://test2.namespace";
+my constant TEST-NS3 = "http://test3.namespace";
 
 # Valid :sequence declarations:
 # :sequence( ElemType1, ElemType2 )
@@ -16,10 +18,10 @@ my constant EXTRA-NS = "http://extra.namespace";
 # :sequence( :xml-name(Int, :attr<id>, :ns(...)) )
 # :sequence( (Type, |%named-args) )
 
-plan 4;
+plan 6;
 
 subtest "Base serialization" => {
-    plan 1;
+    plan 3;
 
     my class Item1 is xml-element<item-a> {
         has Str:D $.info is xml-element is required;
@@ -61,20 +63,31 @@ subtest "Base serialization" => {
     $xs.push: "id100", "id101";
 
     my $expected = "#xml" => [:XMLSeq([:descr("test sequence"), :details([:start-idx("1"), :start-id("id1")]), :idx(["0"]), :item-a([:ref("id0"), :info(["first"])]), :item-a([:ref("id1"), :info(["second"])]), :rec([:id("id0"), :data(["test 1"])]), :idx(["1"]), :idx(["2"]), :idx(["3"]), :rec([:id("id1"), :data(["test 2"])]), :item-a([:ref("id1"), :info(["third"])]), :rec([:id("id2"), :data(["test 3"])]), :excl([:id("id100")]), :excl([:id("id101")])])];
-    cmp-deeply $xs.to-xml.ast, $expected, "simple sequence serialized";
+    my $serialized = $xs.to-xml;
+    cmp-deeply $serialized.ast, $expected, "simple sequence serialized";
+    my $deserialized = XMLSeq.from-xml: $serialized.Str, config => %( :eager );
+    # XMLSequence is always lazy with regard to its items. Iterate manually to get 'em all.
+    subtest "check items" => {
+        plan $xs.elems + 1;
+        is $deserialized.elems, $xs.elems, "all sequence items are picked from the source";
+        for ^$deserialized.elems {
+            cmp-deeply $deserialized[$_], $xs[$_], "item at position $_";
+        }
+    }
+    cmp-deeply $deserialized, $xs, "sequence deserialized";
 }
 
 subtest "Namespaced" => {
-    plan 1;
+    plan 3;
 
     my class Item1 is xml-element<item-a> {
         has Str:D $.info is xml-element is required;
-        has Str:D $.ref is xml-attribute(:ns(EXTRA-NS)) is required;
+        has Str:D $.ref is xml-attribute(:ns(TEST-NS1)) is required;
     }
 
     my class Item2 is xml-element(<item-b>, :ns(ITEM-NS)) {
         has Str:D $.data is xml-element is required;
-        has Str:D $.id is xml-attribute(:ns(EXTRA-NS)) is required;
+        has Str:D $.id is xml-attribute(:ns(TEST-NS1)) is required;
     }
 
     my class Details {
@@ -84,9 +97,8 @@ subtest "Namespaced" => {
 
     my class XMLSeq
         is xml-element(
-            :sequence(Item1, :rec(Item2), :idx(UInt), :excl(Str, :ns(:extr))),
-            :ns(DEFAULT-NS, :extr(EXTRA-NS))
-            )
+            :sequence(Item1, :rec(Item2, :derive), :idx(UInt, :!ns, :!derive), :excl(Str, :ns(:extr))),
+            :ns(DEFAULT-NS, :pfx, :pfx(TEST-NS2), :extr(TEST-NS1)) )
     {
         has Str:D $.descr is xml-attribute is required;
         has Details:D $.details is xml-element is required;
@@ -104,12 +116,133 @@ subtest "Namespaced" => {
     $xs.push: Item2.new(:data("test 3"), :id<id2>);
     $xs.push: "id201", "id202";
 
-    my $expected = "#xml" => [:XMLSeq([:xmlns("http://app.namespace"), "xmlns:extr" => "http://extra.namespace", :descr("test sequence"), :details([:start-idx("1"), :start-id("id1")]), :idx(["0"]), :item-a(["extr:ref" => "id0", :info(["first"])]), :item-a(["extr:ref" => "id1", :info(["second"])]), :rec([:xmlns("http://item.namespace"), "extr:id" => "id0", :data(["test 1"])]), :idx(["1"]), :idx(["2"]), :idx(["3"]), :rec([:xmlns("http://item.namespace"), "extr:id" => "id1", :data(["test 2"])]), :item-a(["extr:ref" => "id1", :info(["third"])]), :rec([:xmlns("http://item.namespace"), "extr:id" => "id2", :data(["test 3"])]), "extr:excl" => ["id201"], "extr:excl" => ["id202"]])];
-    cmp-deeply $xs.to-xml.ast, $expected, "simple sequence serialized";
+    my $expected = "#xml" => ["pfx:XMLSeq" => ["xmlns:pfx" => "http://test2.namespace", "xmlns:extr" => "http://extra.namespace", :xmlns("http://app.namespace"), :descr("test sequence"), :details([:start-idx("1"), :start-id("id1")]), :idx([:xmlns(""), "0"]), :item-a(["extr:ref" => "id0", :info(["first"])]), :item-a(["extr:ref" => "id1", :info(["second"])]), "pfx:rec" => ["extr:id" => "id0", :data(["test 1"])], :idx([:xmlns(""), "1"]), :idx([:xmlns(""), "2"]), :idx([:xmlns(""), "3"]), "pfx:rec" => ["extr:id" => "id1", :data(["test 2"])], :item-a(["extr:ref" => "id1", :info(["third"])]), "pfx:rec" => ["extr:id" => "id2", :data(["test 3"])], "extr:excl" => ["id201"], "extr:excl" => ["id202"]]];
+    my $serialized = $xs.to-xml;
+    cmp-deeply $serialized.ast, $expected, "sequence serialized";
+
+    my $deserialized = XMLSeq.from-xml: $serialized.Str;
+    subtest "check items" => {
+        plan $xs.elems + 1;
+        is $deserialized.elems, $xs.elems, "all sequence items are picked from the source";
+        for ^$deserialized.elems {
+            cmp-deeply $deserialized[$_], $xs[$_], "item at position $_";
+        }
+    }
+    cmp-deeply $deserialized, $xs, "sequence deserialized";
+}
+
+subtest "Imposed namespace" => {
+    plan 3;
+
+    my class Item1 is xml-element<item-a> {
+        has Str:D $.info is xml-element is required;
+        has Str:D $.ref is xml-attribute(:ns(TEST-NS1)) is required;
+    }
+
+    my class Item2 is xml-element(<item-b>, :ns(ITEM-NS)) {
+        has Str:D $.data is xml-element is required;
+        has Str:D $.id is xml-attribute(:ns(TEST-NS1)) is required;
+    }
+
+    my class Details {
+        has UInt:D $.start-idx is required;
+        has Str:D $.start-id is required;
+    }
+
+    my class XMLSeq
+        is xml-element(
+            :impose-ns,
+            :sequence(Item1, :rec(Item2), :idx(UInt, :ns()), :excl(Str, :ns(:extr))),
+            :ns(DEFAULT-NS, :pfx, :pfx(TEST-NS2), :extr(TEST-NS1)) )
+    {
+        has Str:D $.descr is xml-attribute is required;
+        has Details:D $.details is xml-element is required;
+    }
+
+    my $xs = XMLSeq.new: :descr('test sequence'), :details(Details.new(:start-idx(1), :start-id("id1")));
+
+    $xs.push: 0;
+    $xs.push: Item1.new(:info("first"), :ref("id0"));
+    $xs.push: Item1.new(:info("second"), :ref("id1"));
+    $xs.push: Item2.new(:data("test 1"), :id<id0>);
+    $xs.push: 1, 2, 3;
+    $xs.push: Item2.new(:data("test 2"), :id<id1>);
+    $xs.push: Item1.new(:info("third"), :ref("id1"));
+    $xs.push: Item2.new(:data("test 3"), :id<id2>);
+    $xs.push: "id201", "id202";
+
+    my $expected = "#xml" => ["pfx:XMLSeq" => ["xmlns:pfx" => "http://test2.namespace", "xmlns:extr" => "http://extra.namespace", :xmlns("http://app.namespace"), "pfx:descr" => "test sequence", "pfx:details" => [:start-idx("1"), :start-id("id1")], :idx(["0"]), "pfx:item-a" => ["extr:ref" => "id0", :info(["first"])], "pfx:item-a" => ["extr:ref" => "id1", :info(["second"])], "pfx:rec" => ["extr:id" => "id0", :data(["test 1"])], :idx(["1"]), :idx(["2"]), :idx(["3"]), "pfx:rec" => ["extr:id" => "id1", :data(["test 2"])], "pfx:item-a" => ["extr:ref" => "id1", :info(["third"])], "pfx:rec" => ["extr:id" => "id2", :data(["test 3"])], "extr:excl" => ["id201"], "extr:excl" => ["id202"]]];
+    my $serialized = $xs.to-xml;
+    cmp-deeply $serialized.ast, $expected, "sequence serialized";
+
+    my $deserialized = XMLSeq.from-xml: $serialized.Str;
+    subtest "check items" => {
+        plan $xs.elems + 1;
+        is $deserialized.elems, $xs.elems, "all sequence items are picked from the source";
+        for ^$deserialized.elems {
+            cmp-deeply $deserialized[$_], $xs[$_], "item at position $_";
+        }
+    }
+    cmp-deeply $deserialized, $xs, "sequence deserialized";
+}
+
+subtest "Derive by default" => {
+    plan 3;
+
+    my class Item1 is xml-element<item-a> {
+        has Str:D $.info is xml-element is required;
+        has Str:D $.ref is xml-attribute(:ns(TEST-NS1)) is required;
+    }
+
+    my class Item2 is xml-element(<item-b>, :ns(ITEM-NS)) {
+        has Str:D $.data is xml-element is required;
+        has Str:D $.id is xml-attribute(:ns(TEST-NS1)) is required;
+    }
+
+    my class Details {
+        has UInt:D $.start-idx is required;
+        has Str:D $.start-id is required;
+    }
+
+    my class XMLSeq
+        is xml-element(
+            :derive, # Means that config's .derive property to be set to True.
+            :sequence(Item1, :rec(Item2, :!derive), :idx(UInt, :ns()), :excl(Str, :ns(:extr))),
+            :ns(DEFAULT-NS, :pfx, :pfx(TEST-NS2), :extr(TEST-NS1)) )
+    {
+        has Str:D $.descr is xml-attribute is required;
+        has Details:D $.details is xml-element(:ns(TEST-NS3)) is required;
+    }
+
+    my $xs = XMLSeq.new: :descr('test sequence'), :details(Details.new(:start-idx(1), :start-id("id1")));
+
+    $xs.push: 0;
+    $xs.push: Item1.new(:info("first"), :ref("id0"));
+    $xs.push: Item1.new(:info("second"), :ref("id1"));
+    $xs.push: Item2.new(:data("test 1"), :id<id0>);
+    $xs.push: 1, 2, 3;
+    $xs.push: Item2.new(:data("test 2"), :id<id1>);
+    $xs.push: Item1.new(:info("third"), :ref("id1"));
+    $xs.push: Item2.new(:data("test 3"), :id<id2>);
+    $xs.push: "id201", "id202";
+
+    my $expected = "#xml" => ["pfx:XMLSeq" => ["xmlns:pfx" => "http://test2.namespace", "xmlns:extr" => "http://extra.namespace", :xmlns("http://app.namespace"), :descr("test sequence"), :details([:xmlns("http://test3.namespace"), :start-idx("1"), :start-id("id1")]), "pfx:idx" => ["0"], "pfx:item-a" => ["extr:ref" => "id0", "pfx:info" => ["first"]], "pfx:item-a" => ["extr:ref" => "id1", "pfx:info" => ["second"]], :rec([:xmlns("http://item.namespace"), "extr:id" => "id0", :data(["test 1"])]), "pfx:idx" => ["1"], "pfx:idx" => ["2"], "pfx:idx" => ["3"], :rec([:xmlns("http://item.namespace"), "extr:id" => "id1", :data(["test 2"])]), "pfx:item-a" => ["extr:ref" => "id1", "pfx:info" => ["third"]], :rec([:xmlns("http://item.namespace"), "extr:id" => "id2", :data(["test 3"])]), "extr:excl" => ["id201"], "extr:excl" => ["id202"]]];
+    my $serialized = $xs.to-xml;
+    cmp-deeply $serialized.ast, $expected, "sequence serialized";
+
+    my $deserialized = XMLSeq.from-xml: $serialized.Str;
+    subtest "check items" => {
+        plan $xs.elems + 1;
+        is $deserialized.elems, $xs.elems, "all sequence items are picked from the source";
+        for ^$deserialized.elems {
+            cmp-deeply $deserialized[$_], $xs[$_], "item at position $_";
+        }
+    }
+    cmp-deeply $deserialized, $xs, "sequence deserialized";
 }
 
 subtest "XML:any" => {
-    plan 3;
+    plan 4;
 
     my LibXML::Class::Config:D $config .= new:
         ns-map => (
@@ -120,43 +253,94 @@ subtest "XML:any" => {
                 "numeric" => Num,
                 "stringy" => Str,
             ),
-            (EXTRA-NS) => (
+            (TEST-NS1) => (
                 "size" => Int,
+            ),
+            (TEST-NS3) => (
+                "volume" => Num,
+                "annotation" => Str,
+                "illegal" => Int,
             )
         );
 
     my class XSAny is xml-element(
         :any,
-        :ns(DEFAULT-NS),
+        :ns(DEFAULT-NS, :pfx(TEST-NS3)),
         :sequence(
-            Str, Num, (Int, :attr<value>, :ns(EXTRA-NS))
+            Str, Num, (Int, :attr<value>, :ns(TEST-NS1))
         )) {}
 
-    my $xs-any = XSAny.new;
+    subtest "Plain straight" => {
+        plan 3;
+        my $xs-any = XSAny.new;
 
-    $xs-any.push: 1.234e-2;
-    $xs-any.push: "some text";
-    $xs-any.push: 42;
-    # say $xs-any.to-xml(:$config).Str(:format);
-    # say $xs-any.to-xml(:$config).ast.raku;
-    my $expected = "#xml" => [:XSAny([:xmlns("http://app.namespace"), :numeric(["0.01234"]), :stringy(["some text"]), :size([:xmlns("http://extra.namespace"), :value("42")])])];
-    cmp-deeply $xs-any.to-xml(:$config).ast, $expected, "xml:any sequence serialized OK";
+        $xs-any.push: 1.234e-2;
+        $xs-any.push: "some text";
+        $xs-any.push: 42;
+        # say $xs-any.to-xml(:$config).Str(:format);
+        # say $xs-any.to-xml(:$config).ast.raku;
+        my $expected = "#xml" => [:XSAny([:xmlns("http://app.namespace"), "xmlns:pfx" => "http://test3.namespace", :numeric(["1.234e-02"]), :stringy(["some text"]), :size([:xmlns("http://extra.namespace"), :value("42")])])];
+        my $serialized = $xs-any.to-xml(:$config);
+        cmp-deeply $serialized.ast, $expected, "serialized OK";
+        my $deserialized = XSAny.from-xml($serialized.Str, :$config);
+        subtest "check items" => {
+            plan $xs-any.elems + 1;
+            is $deserialized.elems, $xs-any.elems, "all sequence items are picked from the source";
+            for ^$deserialized.elems {
+                cmp-deeply $deserialized[$_], $xs-any[$_], "item at position $_";
+            }
+        }
+        cmp-deeply $deserialized, $xs-any, "sequence deserialized";
+    }
 
-    # Different namespace must give different element name
-    $xs-any = XSAny.new: xml-default-ns => "";
-    $xs-any.push: 42.12e0;
-    # say $xs-any.to-xml(:$config).Str(:format);
-    # say $xs-any.to-xml(:$config).ast.raku;
-    $expected = "#xml" => [:XSAny([:number(["42.12"])])];
-    cmp-deeply $xs-any.to-xml(:$config).ast, $expected, "item element name of xml:any sequence depends on namespace";
+
+    subtest "Element name depends on namespace" => {
+        plan 3;
+        # Different namespace must give different element name
+        my $xs-any = XSAny.new: xml-default-ns => "";
+        $xs-any.push: 42.12e0;
+        # say $xs-any.to-xml(:$config).Str(:format);
+        # say $xs-any.to-xml(:$config).ast.raku;
+        my $expected = "#xml" => [:XSAny(["xmlns:pfx" => "http://test3.namespace", :number(["4.212e+01"])])];
+        my $serialized = $xs-any.to-xml(:$config);
+        cmp-deeply $serialized.ast, $expected, "serialized OK";
+        my $deserialized = XSAny.from-xml($serialized.Str, :$config, :xml-default-ns(""));
+        subtest "check items" => {
+            plan $xs-any.elems + 1;
+            is $deserialized.elems, $xs-any.elems, "all sequence items are picked from the source";
+            for ^$deserialized.elems {
+                cmp-deeply $deserialized[$_], $xs-any[$_], "item at position $_";
+            }
+        }
+        cmp-deeply $deserialized, $xs-any, "sequence deserialized";
+    }
+
+    subtest "With a prefix" => {
+        my $xs-any = XSAny.new: xml-default-ns-pfx => "pfx";
+        $xs-any.push: 1.234e-2;
+        $xs-any.push: "some text";
+        $xs-any.push: 42;
+        my $serialized = $xs-any.to-xml(:$config);
+        my $expected = "#xml" => ["pfx:XSAny" => ["xmlns:pfx" => "http://test3.namespace", :xmlns("http://app.namespace"), "pfx:volume" => ["1.234e-02"], "pfx:annotation" => ["some text"], :size([:xmlns("http://extra.namespace"), :value("42")])]];
+        cmp-deeply $serialized.ast, $expected, "serialized OK";
+        my $deserialized = XSAny.from-xml($serialized.Str, :$config, :xml-default-ns-pfx("pfx"));
+        subtest "check items" => {
+            plan $xs-any.elems + 1;
+            is $deserialized.elems, $xs-any.elems, "all sequence items are picked from the source";
+            for ^$deserialized.elems {
+                cmp-deeply $deserialized[$_], $xs-any[$_], "item at position $_";
+            }
+        }
+        cmp-deeply $deserialized, $xs-any, "sequence deserialized";
+    }
 
     throws-like {
-            $xs-any = XSAny.new: xml-default-ns => "";
+            my $xs-any = XSAny.new: xml-default-ns => "";
             $xs-any.push: "aa";
             $xs-any.to-xml(config => $config.clone(severity => STRICT))
         },
         LibXML::Class::X::Serialize::Impossible,
-        :message(/:s an instance of Str .* no XML name found .* in namespace \'\'/),
+        :message(/:s an instance of Str .* no XML name found .* and namespace \'\'/),
         "serialization fails with strict severity and no basic type mapping";
 }
 

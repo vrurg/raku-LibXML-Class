@@ -34,40 +34,40 @@ subtest "Namespacing" => {
 
     is NS-Attr.^xml-get-attr('$!attr2').xml-name, 'aliased', "xml-attribute name alternation";
 
-    subtest "Inheriting" => {
+    subtest "Deriving" => {
         plan 5;
 
         my class Default-NS is xml-element( :ns(TEST-NS1) ) {
-            has $.attr is xml-element(:inherit);
+            has $.attr is xml-element(:derive);
         }
 
-        cmp-deeply Default-NS.^xml-get-attr('$!attr').maybe-inherit-ns,
-                   (TEST-NS1, Str),
-                   "attribute inherits from its class";
+        cmp-deeply Default-NS.^xml-get-attr('$!attr').compose-ns,
+                   (TEST-NS1, ""),
+                   "attribute derives from its class";
 
         my $default-ns = Default-NS.new(:xml-default-ns-pfx<foo>);
-        cmp-deeply Default-NS.^xml-get-attr('$!attr').maybe-inherit-ns(:from($default-ns)),
+        cmp-deeply Default-NS.^xml-get-attr('$!attr').compose-ns(:from($default-ns)),
                    (TEST-NS1, 'foo'),
-                   "attribute inherits from class instance 1";
+                   "attribute derives from class instance 1";
 
         $default-ns = Default-NS.new(:xml-default-ns(TEST-NS3), :xml-default-ns-pfx<bar>);
-        cmp-deeply Default-NS.^xml-get-attr('$!attr').maybe-inherit-ns(:from($default-ns)),
+        cmp-deeply Default-NS.^xml-get-attr('$!attr').compose-ns(:from($default-ns)),
                    (TEST-NS3, 'bar'),
-                   "attribute inherits from class instance 2";
+                   "attribute derives from class instance 2";
 
         my \ns-role = (my role Namespaced is xml-element( :ns(TEST-NS2, :foo(TEST-NS3) ) ) {
-            has $.ns-attr is xml-element(:inherit);
+            has $.ns-attr is xml-element(:derive);
         });
 
-        cmp-deeply ns-role.^xml-get-attr('$!ns-attr').maybe-inherit-ns,
-                   (TEST-NS2, Str),
-                   "attribute inherits from its role";
+        cmp-deeply ns-role.^xml-get-attr('$!ns-attr').compose-ns,
+                   (TEST-NS2, ""),
+                   "attribute derives from its role";
 
         my class NS-From-Prefix is xml-element( :ns(:foo) ) does Namespaced { }
 
-        cmp-deeply NS-From-Prefix.^xml-get-attr('$!ns-attr').maybe-inherit-ns,
-                   (TEST-NS2, Str),
-                   "attribute inherits from its role even when consumed by a class";
+        cmp-deeply NS-From-Prefix.^xml-get-attr('$!ns-attr').compose-ns,
+                   (TEST-NS2, ""),
+                   "attribute derives from its role even when consumed by a class";
     }
 }
 

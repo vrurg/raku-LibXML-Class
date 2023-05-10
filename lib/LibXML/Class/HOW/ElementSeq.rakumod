@@ -11,13 +11,13 @@ also does WITH-HOW;
 
 # Tags allowed for sequence
 has List $!xml-item-descriptors;
+# As collected from MRO
+has List $!xml-all-item-descriptors;
 
 # Whether this class was declared as xml-any
 has Bool $!xml-any;
 
-# !!! The following 4 attributes are set with !xml-build-from-mro method.
-# Map namespace -> tag -> item descriptor. Built of $!xml-item-descriptors of this and all parent ElementSeq classes
-has $!xml-tag2desc;
+# !!! The following 3 attributes are set with !xml-build-from-mro method.
 # Map item types into corresponding item descriptors.
 has $!xml-type2desc;
 # Either we or any parent class is marked xml-any
@@ -58,9 +58,9 @@ method xml-build-array-type(@child-types) {
 }
 
 method xml-build-from-mro(Mu \obj) {
-    my %tag2desc;
     my Array[LibXML::Class::ItemDescriptor:D] %type2desc{Mu};
     my @child-types;
+    my @all-desc;
 
     $!xml-either-any = False;
 
@@ -69,10 +69,8 @@ method xml-build-from-mro(Mu \obj) {
         # defines a child :foo(Foo), but Seq2 is Seq1 and defines :foo(Bar). Then sequence tag <foo> would resolve
         # into Bar for Seq2 instances.
         for typeobj.^xml-item-descriptors -> LibXML::Class::ItemDescriptor:D $desc {
-            with $desc.xml-name {
-                %tag2desc{$desc.guess-ns // ""}{$_} = $desc;
-            }
             %type2desc{$desc.type}.push: $desc;
+            @all-desc.push: $desc;
             @child-types.push: $desc.type;
         }
 
@@ -80,9 +78,13 @@ method xml-build-from-mro(Mu \obj) {
     }
 
     $!xml-type2desc := %type2desc;
-    $!xml-tag2desc := Map.new: %tag2desc.kv.map(-> $ns, %tags { $ns => %tags.Map });
-
+    $!xml-all-item-descriptors := @all-desc.List;
     self.xml-build-array-type(@child-types);
+}
+
+method xml-all-item-descriptors(Mu \obj) is raw {
+    self.xml-build-from-mro(obj) without $!xml-all-item-descriptors;
+    $!xml-all-item-descriptors
 }
 
 method xml-array-type(Mu \obj) is raw {
@@ -94,13 +96,13 @@ method xml-either-any(Mu \obj) {
     ? $!xml-either-any
 }
 
-method xml-desc-for-elem(Mu \obj, LibXML::Element:D $elem) {
-    self.xml-build-from-mro(obj) without $!xml-either-any;
+# method xml-desc-for-elem(Mu \obj, LibXML::Element:D $elem) {
+#     self.xml-build-from-mro(obj) without $!xml-either-any;
 
-    $!xml-tag2desc{$elem.namespaceURI // ""}
-        andthen .{$elem.localName}
-        orelse Nil
-}
+#     note "??? DESC FROM ELEM ", $elem.name, " from ", $elem.namespaceURI;
+
+#     ($!xml-tag2desc{$elem.namespaceURI // ""} andthen .{$elem.localName}) // Nil
+# }
 
 method xml-desc-for-type(Mu \obj, Mu $item --> Positional) {
     self.xml-build-from-mro(obj) without $!xml-either-any;

@@ -2,6 +2,7 @@ use v6.e.PREVIEW;
 unit module LibXML::Class::Attr;
 use experimental :will-complain;
 
+use AttrX::Mooish;
 use LibXML::Element;
 
 use LibXML::Class::Attr::Node;
@@ -9,9 +10,9 @@ use LibXML::Class::Attr::XMLish;
 use LibXML::Class::HOW::AttrContainer;
 use LibXML::Class::Node;
 use LibXML::Class::Types;
+use LibXML::Class::Utils;
 use LibXML::Class::X;
 use LibXML::Class::XML;
-use LibXML::Class::Utils;
 
 # For attributes mapping into XML element attributes
 class XMLAttribute does LibXML::Class::Attr::Node {
@@ -22,6 +23,20 @@ class XMLAttribute does LibXML::Class::Attr::Node {
                 :what($_)
                 ).throw
         }
+
+        # xml-attribute either derives its NS prefix explicitly or never do it otherwise.
+        $!derive //= xml-implicit-value(False);
+    }
+
+    # xml-attribute never uses namespace of its type.
+    method derive-from-type(--> False) is pure {}
+
+    # xml-attribute only takes a prefix when :impose-ns is involved. Default namespace is not used because it is not
+    # guaranteed that a prefix for it exists.
+    multi method preprocess-ns(Bool:D $ns) {
+        return () unless $ns;
+        # For xml-attribute when we pull NS from the declarant we only pull in its prefix.
+        (|($_ => True with .xml-default-ns-pfx),) given $!declarant.HOW
     }
 
     method kind is pure { "attribute" }
@@ -44,7 +59,7 @@ role XMLContainer {
     }
     # Name of the actual value XML element. If $value-type is passed in then it might be used to determine the name.
     method value-name(Mu $value is raw = Nil) {
-        my \name-src = $value eqv Nil ?? $.type !! $value;
+        my \name-src = $value eqv Nil ?? $.nominal-type !! $value;
         $!container && $!container ~~ Bool
             ?? (name-src ~~ BasicType
                 ?? Nil
@@ -63,17 +78,7 @@ class XMLValueElement does LibXML::Class::Attr::Node does XMLContainer {
     # Is it a xs:any kind of element? If so, the final type would be looked up in namespace-based mapping in config.
     has Bool $!any is built;
 
-#    method xml-build-name {
-#        my \nominal-type = self.nominal-type;
-#        (!$!any && # xml:any kind of attribute must not use attribute's type name even if it's an xml-element
-#            ((nominal-type.HOW ~~ LibXML::Class::Node && nominal-type.HOW.xml-name)
-#                || (nominal-type !~~ BasicType && nominal-type.^shortname)))
-#            || self.LibXML::Class::Attr::XMLish::xml-build-name
-#    }
-
     method kind is pure { "value element" }
-
-    method nominal-type is raw { nominalize-type($.type) }
 
     method is-any { $!any }
 }
@@ -84,22 +89,18 @@ class XMLTextNode does LibXML::Class::Attr::XMLish {
     has Bool $.trim;
 
     method kind is pure { "text element" }
+
+    method xml-name { '#text' }
 }
 
 class XMLPositional is XMLValueElement {
     method kind is pure { "positional" }
-
-    method nominal-type {
-        nominalize-type((my \type = $.type) ~~ Positional ?? type.of !! type)
-    }
 }
 
 class XMLAssociative is XMLValueElement {
     method kind is pure { "associative" }
 
-    method nominal-type {
-        nominalize-type((my \type = $.type) ~~ Associative ?? type.of !! type)
-    }
+    method nominal-keyof is raw { nominalize-type($.type.keyof) }
 }
 
 our proto sub mark-attr-xml(|) {*}
@@ -151,7 +152,7 @@ multi sub no-extra-nameds(XMLTextNode \kind, :trim($), *%rest) {
     nextwith(kind, |%rest)
 }
 multi sub no-extra-nameds( LibXML::Class::Attr::XMLish,
-                           :serializer($), :deserializer($), :lazy($), :inherit($),
+                           :serializer($), :deserializer($), :lazy($), :derive($),
                            *%rest )
 {
     if %rest {
@@ -197,5 +198,14 @@ multi sub mark-attr-xml( Attribute:D $attr,
     %profile<lazy> //= False if $attr.type ~~ BasicType;
     %profile<value-attr> = (%profile<attr>:delete) if %profile<attr>:exists;
 
-    pkg.^xml-attr-register: $descriptor-class.new(|%profile, :declarant(pkg), :$attr);
+    pkg.^xml-attr-register: my $attr-desc = $descriptor-class.new(|%profile, :declarant(pkg), :$attr);
+
+    if $attr-desc.lazy // (pkg.^xml-is-lazy && !is-basic-type($attr-desc.type)) {
+        LibXML::Class::X::ReMooify.new(:$attr, :type(pkg)).throw if $attr ~~ AttrX::Mooish::Attribute;
+        my $xml-name = $attr-desc.xml-name;
+        my $lazy = 'xml-deserialize-attr';
+        my $clearer = 'xml-clear-' ~ $xml-name;
+        my $predicate = 'xml-has-' ~ $xml-name;
+        &trait_mod:<is>($attr, :mooish(:$lazy, :$clearer, :$predicate));
+    }
 }

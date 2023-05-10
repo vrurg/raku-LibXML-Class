@@ -9,9 +9,16 @@ use LibXML::Element;
 use LibXML::Class::Types;
 use LibXML::Class::Utils;
 
-has Str $.xml-default-ns;
-has Str $.xml-default-ns-pfx;
+has Str $!xml-default-ns;
+has Str $!xml-default-ns-pfx;
 has $!xml-namespaces;
+
+submethod TWEAK(Str :$!xml-default-ns, Str :$!xml-default-ns-pfx, :$xml-namespaces) {
+    $!xml-namespaces := OHash.new(|$_) with $xml-namespaces;
+}
+
+method xml-default-ns(::?CLASS:D:) { $!xml-default-ns }
+method xml-default-ns-pfx(::?CLASS:D:) { $!xml-default-ns-pfx }
 
 # Use this kinda-lazy method to provide support for MOP roles where %!xml-namespaces would be initialized into a
 # BOOTHash and then newly-HLLized on every read.
@@ -57,7 +64,7 @@ my sub parse-ns-definitions(+@ns-defs) is raw {
     ($default-ns, $default-ns-pfx, @xml-ns.List)
 }
 
-method xml-set-ns-from-defs(::?CLASS:D: $ns-defs, Bool:D :$override = True) {
+method xml-set-ns-from-defs(::?CLASS:D: $ns-defs is copy, Bool:D :$override = True) {
     my ($default-ns, $default-ns-pfx, $xml-ns) = parse-ns-definitions($ns-defs<>);
     if $override {
         $!xml-default-ns = $_ with $default-ns;

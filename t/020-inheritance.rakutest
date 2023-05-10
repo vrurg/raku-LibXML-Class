@@ -3,11 +3,15 @@ use Test::Async;
 use LibXML::Class;
 use LibXML::Class::Config;
 
+plan 1;
+
 my constant TEST-NS1 = "http://test1.namespace";
 my constant TEST-NS2 = "http://test2.namespace";
 my constant TEST-NS3 = "http://test3.namespace";
 
 subtest "Simple" => {
+    plan 10;
+
     my class Foo is xml-element( :ns(TEST-NS1, :foo(TEST-NS2)) ) {
         has $.foo is xml-attribute;
     }

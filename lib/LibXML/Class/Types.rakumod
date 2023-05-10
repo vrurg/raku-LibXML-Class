@@ -1,6 +1,8 @@
 use v6.e.PREVIEW;
 unit module LibXML::Class::Types;
 
+role IsImplicitValue {}
+
 subset BasicType is export of Mu where { $_<> =:= Any || $_<> =:= Mu || ($_ ~~ Numeric | Stringy | Dateish | Bool) };
 
 # Ordered hash. I'm avoiding Hash::Ordered from the ecosystem because it is using Proxy and it'd be slower than I wish.
@@ -113,3 +115,5 @@ class OHash does Associative does Iterable is export {
         })
     }
 }
+
+sub xml-implicit-value(Mu \value) is export { value but IsImplicitValue }

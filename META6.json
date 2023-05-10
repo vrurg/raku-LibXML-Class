@@ -8,12 +8,12 @@
   "auth": "zef:vrurg",
   "depends": [
     "LibXML:ver<0.10.0>:auth<zef:dwarring>",
-    "AttrX::Mooish:auth<zef:vrurg>:api<1.0.0+>:ver<1.0.2+>",
+    "AttrX::Mooish:auth<zef:vrurg>:api<1.0.0+>:ver<1.0.3+>",
     "Hash::Merge:ver<2.0.0>:auth<github:scriptkitties>:api<2>"
   ],
   "build-depends": [],
   "test-depends": [
-    "Test::Async:ver<0.1.11+>:auth<zef:vrurg>"
+    "Test::Async:ver<0.1.13+>:auth<zef:vrurg>"
   ],
   "provides": {
     "LibXML::Class": "lib/LibXML/Class.rakumod",
@@ -21,6 +21,7 @@
     "LibXML::Class::Attr::Node": "lib/LibXML/Class/Attr/Node.rakumod",
     "LibXML::Class::Attr::XMLish": "lib/LibXML/Class/Attr/XMLish.rakumod",
     "LibXML::Class::Config": "lib/LibXML/Class/Config.rakumod",
+    "LibXML::Class::Descriptor": "lib/LibXML/Class/Descriptor.rakumod",
     "LibXML::Class::Document": "lib/LibXML/Class/Document.rakumod",
     "LibXML::Class::HOW::AttrContainer": "lib/LibXML/Class/HOW/AttrContainer.rakumod",
     "LibXML::Class::HOW::Configurable": "lib/LibXML/Class/HOW/Configurable.rakumod",

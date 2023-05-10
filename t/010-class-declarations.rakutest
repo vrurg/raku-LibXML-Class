@@ -161,7 +161,7 @@ subtest "Attributes" => {
         "attribute kinds";
     cmp-deeply
         Multi-Attribute.^xml-attrs.map(*.value.xml-name).List,
-        <count weight description item rate>,
+        <count weight #text item rate>,
         "attribute XML names";
     cmp-deeply
         Multi-Attribute.^xml-attrs.map(*.key).List,
@@ -224,10 +224,10 @@ subtest "Attributes" => {
 }
 
 subtest "Attribute namespacing" => {
-    plan 4;
+    plan 6;
 
     my constant TEST-NS = "http://test.namespace";
-    my class Elem-Attr-NS is xml-element {
+    my class Elem-Attr-NS is xml-element(:ns("http://app.namespace", :baz<http://baz.namespace>)) {
         # We can only reliably test prefix-only resolution when the prefix is declared on the attribute itself. This
         # is because the only time the prefix is resolvable is run time when class instance is being put into the
         # context of its owner instances. For example, this class' instance can be held by attributes on either Foo
@@ -235,6 +235,8 @@ subtest "Attribute namespacing" => {
         has $.pfx-attr is xml-element(:ns(:pfx, :pfx(TEST-NS)));
         has $.ns-attr is xml-element(:ns("http://foo.namespace"));
         has $.ns-pfx-attr is xml-element(:ns("http://bar.namespace", :bar));
+        has $.ns-from-decl is xml-element(:ns);
+        has $.no-ns is xml-element(:!ns, :!derive);
     }
 
     subtest "Prefix only" => {
@@ -254,6 +256,19 @@ subtest "Attribute namespacing" => {
         plan 2;
         is Elem-Attr-NS.^xml-get-attr('$!ns-pfx-attr').xml-default-ns, "http://bar.namespace", "xml-element default namespace is set";
         is Elem-Attr-NS.^xml-get-attr('$!ns-pfx-attr').xml-default-ns-pfx, "bar", "xml-element namespace prefix is set";
+    }
+
+    subtest "Pull from the declarant" => {
+        plan 2;
+        is Elem-Attr-NS.^xml-get-attr('$!ns-from-decl').xml-default-ns, 'http://app.namespace', "xml-element default namespace is set";
+        nok Elem-Attr-NS.^xml-get-attr('$!ns-from-decl').xml-default-ns-pfx.defined, "xml-element namespace prefix is missing, as in the class xml-element";
+    }
+
+    subtest "Explicit no namespace" => {
+        plan 3;
+        nok Elem-Attr-NS.^xml-get-attr('$!no-ns').xml-default-ns.defined, "xml-element default namespace is empty string";
+        nok Elem-Attr-NS.^xml-get-attr('$!no-ns').xml-default-ns-pfx.defined, "xml-element namespace prefix is missing";
+        cmp-deeply Elem-Attr-NS.^xml-get-attr('$!no-ns').infer-ns, ('', Str), "derive namespace gives empty NS";
     }
 
     throws-like
@@ -327,6 +342,8 @@ subtest "Implicit/Explicit" => {
 }
 
 subtest "Sequential" => {
+    plan 13;
+
     my class Simple-XMLSeq is xml-element(:sequence(:item(Int), :elem(Str), :alias(Str))) { }
 
     ok Int ~~ Simple-XMLSeq.of, "sequence .of type: match Int";
@@ -334,10 +351,6 @@ subtest "Sequential" => {
     nok Num ~~ Simple-XMLSeq.of, "sequence .of type: non-match for non-item type";
     nok Simple-XMLSeq.xml-seq-either-any, "default sequence is not :any";
     is Simple-XMLSeq.^xml-item-descriptors.elems, 3, "all item descriptors";
-    is Simple-XMLSeq.xml-seq-desc-for-type(Int).elems, 1, "item descriptors for Int";
-    is Simple-XMLSeq.xml-seq-desc-for-type(Str).elems, 2, "item descriptors for Str";
-
-    is Simple-XMLSeq.xml-seq-desc-for-type(Int).head.xml-name, "item", "item element name is set from declarations";
 
     nok Simple-XMLSeq.^xml-any, "sequence is :!any by default";
 
@@ -375,47 +388,5 @@ subtest "Sequential" => {
         LibXML::Class::X::Trait::Argument,
         "item must be declared with a single type";
 }
-
-#`{
-class SomeData {
-    has Str $.id;
-    has @.elems = 1,2,3,4;
-}
-
-role XR is xml-element(:ns(:bar, bar => "https://foo.ns.org/some/bar", :baz<https://foo.ns.org/some/baz>)) {
-    has Num $.size;
-}
-
-role XR2 is xml-element(:ns(:baz, fubar => "http://foo.ns.org/some/fubar")) {
-    has $.any;
-    has $.data is xml-element(:ns(:baz));
-}
-
-class Foo is xml-element("foo-elem", :implicit, :ns(:foo, foo => "http://foo.ns.org/some/bar")) does XR does XR2 {
-    has Str $.a is xml-attribute("foo-a", :ns(:fubar)) = "fooo";
-    has Int $.num;
-    has Bool $.flag;
-    has @.list is xml-element("item", :ns(:baz), :container<MyList>) = "A", e, 42;
-    has %.assoc = :a<A>, :b<bb>, :c<Si!>;
-}
-
-for Foo.^xml-attrs(:local).values -> $attr {
-    note $attr.name, " ", $attr.^name;
-}
-
-note Foo.HOW.xml-default-ns;
-note Foo.HOW.xml-default-ns-pfx, " // ", Foo.new.xml-default-ns-pfx;
-note Foo.HOW.xml-namespaces, "\n", Foo.new.xml-namespaces.join("\n").indent(2);
-
-note Foo.^mro(:roles).map(*.^name);
-
-note "default name is ", Foo.^xml-name;
-
-my $foo = Foo.new(:size(12.345e2), :any(pi), :a<fubariki!>, :num(122), :data(SomeData.new(:id<id42>)));
-
-say $foo.to-xml.Str: :format;
-
-note $foo.data.WHICH;
-#}
 
 done-testing;

@@ -177,13 +177,12 @@ class UnclaimedNodes does Base {
         my @elems = @!unclaimed.grep(* !~~ LibXML::Attr);
         my sub unused(@n, $what) {
             @n
-                ?? $what ~ (@n > 1 ?? "s" !! "") ~ @n.map(*.name).join(",")
-                !! ""
+                ?? $what ~ (@n > 1 ?? "s" !! "") ~ ": " ~ @n.map(*.name).unique.join(", ")
+                !! Empty
         }
         "Tag <" ~ $.elem.name ~ "> is not fully de-serialized, there "
-            ~ (@!unclaimed > 1 ?? "are" !! "is") ~ " unused:\n"
-            ~ unused(@attrs, "attribute")
-            ~ unused(@elems, "elements")
+            ~ (@!unclaimed > 1 ?? "are" !! "is") ~ " unused:\n  "
+            ~ (unused(@attrs, "attribute"), unused(@elems, "element")).join("\n  ")
     }
 }
 
@@ -213,6 +212,39 @@ my class Deserialize::NoNSMap does Deserialize {
         "No Raku type found for xml:any element '"
             ~ $!elem.name ~ "' "
             ~ ($!elem.namespaceURI andthen "in namespace '$_'" orelse "with no namespace")
+    }
+}
+
+my class Deserialize::UnknownTag does Deserialize {
+    has Str:D $.xml-name is required;
+    method message {
+        "Don't know how to deserialize a sequence element <" ~ $!xml-name
+            ~ "> for sequence " ~ $.type.^name
+    }
+}
+
+my class Deserialize::DuplicateTag does Deserialize {
+    has $.desc1 is required;
+    has $.desc2 is required;
+    has Str:D $.name is required;
+    has Str:D $.namespace is required;
+
+    method message {
+        "XML name '$.name' in namespace '$.namespace' is claimed by "
+            ~ $.desc1.descriptor-kind ~ " and by " ~ $.desc2.descriptor-kind
+            ~ " for type " ~ $.type.^name
+    }
+}
+
+my class Deserialize::DuplicateType does Deserialize {
+    has $.desc1 is required;
+    has $.desc2 is required;
+    has Str:D $.namespace is required;
+
+    method message {
+        "Item type '{$.desc1.type}' in namespace '$.namespace' is claimed by "
+            ~ $.desc1.descriptor-kind ~ " and by " ~ $.desc2.descriptor-kind
+            ~ " for type " ~ $.type.^name
     }
 }
 

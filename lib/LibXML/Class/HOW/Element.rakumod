@@ -73,9 +73,7 @@ method xml-compose-element(Mu \obj) {
         self.xml-imply-attributes(obj);
     }
 
-    for self.xml-attrs(obj).values {
-        self.xml-lazify-attr(obj, .attr);
-    }
+    # self.xml-lazify-attributes(obj);
 }
 
 method compose_attributes(Mu \obj, |) {
@@ -114,16 +112,18 @@ method xml-set-ns-defaults(Mu, $ns) {
 method xml-set-lazy(Mu, Bool:D $!xml-lazy) {}
 method xml-is-lazy(Mu) { $!xml-lazy }
 
-method xml-lazify-attr(Mu \obj, Attribute:D $attr) {
-    my $attr-desc = self.xml-get-attr(obj, $attr);
-    if $attr-desc.lazy // ($!xml-lazy && !is-basic-type($attr-desc.type)) {
-        LibXML::Class::X::ReMooify.new(:$attr, :type(obj.WHAT)).throw if $attr ~~ AttrX::Mooish::Attribute;
-        my $*PACKAGE = obj;
-        my $xml-name = $attr-desc.xml-name;
-        my Str:D $lazy = 'xml-deserialize-attr';
-        my $clearer = 'xml-clear-' ~ $xml-name;
-        my $predicate = 'xml-has-' ~ $xml-name;
-        trait_mod:<is>($attr, :mooish(:$lazy, :$clearer, :$predicate));
+method xml-lazify-attributes(Mu \obj) {
+    for self.xml-attrs(obj).values -> $attr-desc {
+        if $attr-desc.lazy // ($!xml-lazy && !is-basic-type($attr-desc.type)) {
+            my $attr = $attr-desc.attr;
+            my $control = obj.^attributes(:!local).grep($attr.name).head;
+            LibXML::Class::X::ReMooify.new(:$attr, :type(obj.WHAT)).throw if $attr ~~ AttrX::Mooish::Attribute;
+            my $*PACKAGE := obj;
+            my $short-name = $attr-desc.attr.name.substr(2);
+            my $lazy = 'xml-deserialize-attr';
+            my $clearer = 'xml-clear-' ~ $short-name;
+            my $predicate = 'xml-has-' ~ $short-name;
+            &trait_mod:<is>($attr, :mooish(:$lazy, :$clearer, :$predicate));
+        }
     }
-    $attr
 }

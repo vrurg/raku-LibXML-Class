@@ -39,6 +39,7 @@ method xml-imply-attributes(Mu \obj, Bool:D :$local = True --> Nil) {
             && !self.xml-has-attr(obj, .name, :local)
             && !(.name.substr(2,4) eq 'xml-') })
     -> Attribute:D $attr {
-        LibXML::Class::Attr::mark-attr-xml( $attr, as-xml-element => !is-basic-type($attr.type) );
+        my $as-xml-element = !is-basic-type($attr.type);
+        LibXML::Class::Attr::mark-attr-xml( $attr, :$as-xml-element, |(:derive if $as-xml-element) );
     }
 }

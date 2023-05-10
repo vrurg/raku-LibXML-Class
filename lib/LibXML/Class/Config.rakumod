@@ -5,6 +5,7 @@ use experimental :will-complain;
 use AttrX::Mooish;
 use LibXML::Config;
 use LibXML::Element;
+use LibXML::Types;
 
 use LibXML::Class::HOW::Element;
 use LibXML::Class::Node;
@@ -21,7 +22,10 @@ class NSMapType {
 
 has SerializeSeverity:D $.severity = WARN;
 
+# Bypass laziness and deserialize immediately
 has Bool:D $.eager = False;
+# Default for :derive of xml-element trait
+has Bool:D $.derive = False;
 
 # Namespace -> element name -> class
 has %!ns-map;
@@ -49,7 +53,7 @@ submethod TWEAK(:$ns-map) {
 }
 
 method !build-xml-repr-role {
-    (do require ::('LibXML::Class')).WHO<XMLRepresentation>
+    LibXML::Types::resolve-package('LibXML::Class').WHO<XMLRepresentation>
 }
 
 method !build-ns-map-types {
@@ -67,7 +71,7 @@ method !build-ns-map-types {
 multi method COERCE(%cfg) { self.new(|%cfg) }
 
 method document-class is pure is raw {
-    ::('LibXML::Class::Document')
+    LibXML::Types::resolve-package('LibXML::Class::Document')
 }
 
 method libxml-config-class { LibXML::Config }
@@ -108,10 +112,18 @@ multi method xmlize(Mu:U $what, LibXML::Class::XML:U $with, Str :$xml-name) is r
         LibXML::Class::X::NonClass.new(:type($what), :what('produce an implicit XML representation'));
     }
 
-    my \xmlized = $what.^mixin($with);
+    # With this role overriding xml-create an xmlized class would deserialize into the original $what type instead of
+    # $what+XMLRepresentation.
+    my role XMLized[::FROM] {
+        method xml-create(*%profile) { FROM.new: |%profile }
+    }
+
+    my \xmlized = $what.^mixin($with, XMLized[$what]);
     %xmlizations{$what} := xmlized;
     xmlized.HOW does LibXML::Class::HOW::Element;
     xmlized.^xml-set-explicit(False);
+    # We cannot foresee side effects of lazyfing a class not supposed to be XML serialized or deserialized.
+    xmlized.^xml-set-lazy(False);
     xmlized.^xml-set-name($xml-name // $what.^shortname);
     my $*PACKAGE := xmlized;
     xmlized.^xml-imply-attributes(:!local);
@@ -209,9 +221,8 @@ multi method set-ns-map(Str:D $namespace, Str:D $xml-name, Mu $type) {
 }
 
 method ns-map(::?CLASS:D: LibXML::Element:D $elem) is raw {
-    %!ns-map{$elem.namespaceURI}
+    (%!ns-map{$elem.namespaceURI} // Nil)
         andthen (.{my $xml-name = $elem.localName}:exists ?? .{$xml-name} !! Nil)
-        orelse Nil
 }
 
 method ns-map-type(::?CLASS:D: Mu:U \typeobj, Str :namespace(:$ns) --> NSMapType) {

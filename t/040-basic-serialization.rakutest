@@ -12,7 +12,7 @@ my constant TEST-NS3 = 'http://test3.namespace';
 plan 8;
 
 subtest "Most basic" => {
-    plan 1;
+    plan 2;
 
     my class Prop is xml-element {
         has UInt:D $.count is xml-attribute<size> is required;
@@ -55,10 +55,14 @@ subtest "Most basic" => {
     my $expected = "#xml" => [:dict([:scope("global"), :max-something("42"), :something(["12"]), :entry([:size("2"), :name("article-1"), :comment("dictionary entry #1"), :data([:keyword(["foo"]), :text(["whatever you like"])])]), :entry([:size("3"), :name("article-2"), :comment("another dictionary entry"), :data([:importance(["required"]), :keyword(["bar"]), :text(["you may not like it, but..."])])]), :idx(["s1"]), :idx(["s2"]), :idx(["s3"]), :idx(["s4"])])];
     my $serialized = $root.to-xml;
     cmp-deeply $serialized.ast, $expected, "serialized OK";
+
+    my $deserialized = Root.from-xml: $serialized.Str;
+
+    cmp-deeply $deserialized, $root, "deserialized version is the same";
 }
 
 subtest "Namespaces" => {
-    plan 2;
+    plan 3;
 
     my class Root is xml-element('root', :ns(TEST-NS1, :r1(TEST-NS2))) {
         has Str:D $.attr1 is xml-attribute(:ns(TEST-NS2)) is required;
@@ -66,10 +70,15 @@ subtest "Namespaces" => {
         has Bool:D $.attr3 is xml-element(:ns(:r3, :r3(TEST-NS3))) is required;
     }
 
-    my $root = Root.new: :attr1('a string'), :attr2(12.42), :!attr3;
+    my $root = Root.new: :attr1('a string'), :attr2(12.42), :!attr3, :attr4(42);
 
     my $expected = "#xml" => [:root(["xmlns:r1" => "http://test2.namespace", :xmlns("http://test1.namespace"), "r1:attr1" => "a string", "r1:attr2" => "12.42", "r3:attr3" => ["xmlns:r3" => "http://test3.namespace", "false"]])];
-    cmp-deeply $root.to-xml.ast, $expected, "serialized OK";
+    my $serialized = $root.to-xml;
+    cmp-deeply $serialized.ast, $expected, "serialized OK";
+
+    my $deserialized = Root.from-xml: $serialized.Str;
+
+    cmp-deeply $deserialized, $root, "deserialized version is the same";
 
     my class Foo is xml-element {
         has Str $.foo is xml-attribute(:ns(TEST-NS1));
@@ -82,7 +91,7 @@ subtest "Namespaces" => {
 }
 
 subtest "Containers" => {
-    plan 1;
+    plan 2;
 
     my class Record is xml-element<record> {
         has Int $.idx is xml-attribute;
@@ -138,11 +147,15 @@ subtest "Containers" => {
     }
 
     my $expected = "#xml" => [:root([:rec1([:idx("1"), :val(["record#1"])]), :r2([:idx("2"), :val(["record#2"])]), :rec3([:record([:idx("3"), :val(["record#3"])])]), :fourth-record([:rec4([:idx("4"), :val(["record#4"])])]), :size([:count(["4"])]), :info([:description(["Fictional structure"])]), :list1([:record([:idx("1001"), :val(["record#1001"])]), :record([:idx("1002"), :val(["record#1002"])]), :record([:idx("1003"), :val(["record#1003"])]), :record([:idx("1004"), :val(["record#1004"])])]), :Items([:entry([:idx("2001"), :val(["record#2001"])]), :entry([:idx("2002"), :val(["record#2002"])]), :entry([:idx("2003"), :val(["record#2003"])])]), :LIST2([:item([:idx("3001"), :val(["record#3001"])]), :item([:idx("3002"), :val(["record#3002"])]), :item([:idx("3003"), :val(["record#3003"])])])])];
-    cmp-deeply $root.to-xml.ast, $expected, "serialized OK";
+    my $serialized = $root.to-xml;
+    cmp-deeply $serialized.ast, $expected, "serialized OK";
+
+    my $deserialized = Root.from-xml: $serialized.Str;
+    cmp-deeply $deserialized, $root, "deserialized version is the same";
 }
 
 subtest "Containers and Namespaces" => {
-    plan 1;
+    plan 2;
 
     my class Root is xml-element('root', :ns('http://default.namespace', :pfx<http://test.namespace>)) {
         has Str:D $.descr is xml-element('description', :container<INFO>, :ns(:pfx)) is required;
@@ -152,53 +165,87 @@ subtest "Containers and Namespaces" => {
 
     my $root = Root.new: descr => "this must be namespaced", count => 42;
 
-    my $expected = "#xml" => [:root([:xmlns("http://default.namespace"), "xmlns:pfx" => "http://test.namespace", "pfx:INFO" => ["pfx:description" => ["this must be namespaced"]], :weight([:xmlns("http://cont.namespace"), :count(["42"])]), "pfx:banal" => ["xmlns:pfx" => "http://math.namespace", "pfx:constant" => ["3.141592653589793"]]])];
-    cmp-deeply $root.to-xml.ast, $expected, "serialized OK";
+    my $expected = "#xml" => [:root([:xmlns("http://default.namespace"), "xmlns:pfx" => "http://test.namespace", "pfx:INFO" => ["pfx:description" => ["this must be namespaced"]], :weight([:xmlns("http://cont.namespace"), :count(["42"])]), "pfx:banal" => ["xmlns:pfx" => "http://math.namespace", "pfx:constant" => ["3.141592653589793e+00"]]])];
+    my $serialized = $root.to-xml;
+    cmp-deeply $serialized.ast, $expected, "serialized OK";
+
+    my $deserialized = Root.from-xml: $serialized.Str;
+    cmp-deeply $deserialized, $root, "deserialized version is the same";
 }
 
 subtest "Namespaced subrecords" => {
-    plan 1;
+    plan 4;
 
-    my class Record is xml-element(<record>, :ns(:pfx)) {
-        has Int $.idx is xml-element(:inherit);
-        has Str $.val is xml-element(:ns(:xstr));
+    my class Meta is xml-element {
+        has Str $.comment is xml-element;
+        has DateTime:D $.created is xml-element(:ns(""), :derive) is required;
     }
 
-    my class Root is xml-element('root', :ns('http://root.namepsace', :pfx<http://prefix.namespace>)) {
+    my class Record is xml-element(<record>, :ns(:pfx)) {
+        has Int $.idx is xml-element(:derive);
+        has Str $.val is xml-element(:ns(:xstr));
+        has Meta $.meta is xml-element;
+    }
+
+    my class Root is xml-element('root', :ns('http://root.namespace', :pfx<http://prefix.namespace>)) {
         has Record:D $.rec is xml-element(:ns(:xstr<http://strings.namespace>)) is required;
     }
 
-    my $root = Root.new: rec => Record.new(:idx(42), :val('The Answer'));
+    my $meta = Meta.new(:comment("some extra info"), :created(DateTime.new('2023-05-05T18:00:00+0200')));
+    my $root = Root.new: rec => Record.new(:idx(42), :val('The Answer'), :$meta);
 
-    my $expected = "#xml" => [:root([:xmlns("http://root.namepsace"), "xmlns:pfx" => "http://prefix.namespace", "pfx:rec" => ["xmlns:xstr" => "http://strings.namespace", "pfx:idx" => ["42"], "xstr:val" => ["The Answer"]]])];
-    cmp-deeply $root.to-xml.ast, $expected, 'serialized OK';
+    my $expected = "#xml" => [:root([:xmlns("http://root.namespace"), "xmlns:pfx" => "http://prefix.namespace", "pfx:rec" => ["xmlns:xstr" => "http://strings.namespace", "pfx:idx" => ["42"], "xstr:val" => ["The Answer"], :meta([:comment(["some extra info"]), :created([:xmlns(""), "2023-05-05T18:00:00+02:00"])])]])];
+    my $serialized = $root.to-xml;
+    cmp-deeply $serialized.ast, $expected, 'serialized OK';
 
-#    $root.xml-set-ns-from-defs(('http://custom.namespace', :pfx<pfx.ns>, :xstr<str.ns>));
-#    say $root.to-xml(config => %( :severity<STRICT> )).Str(:format);
+    my $deserialized = Root.from-xml: $serialized.Str;
+    cmp-deeply $deserialized, $root, "deserialized version is the same";
+
+    $serialized = $root.to-xml(config => %( :derive ));
+    $expected = "#xml" => [:root([:xmlns("http://root.namespace"), "xmlns:pfx" => "http://prefix.namespace", :rec(["xmlns:xstr" => "http://strings.namespace", :idx(["42"]), "xstr:val" => ["The Answer"], :meta([:comment(["some extra info"]), :created([:xmlns(""), "2023-05-05T18:00:00+02:00"])])])])];
+    cmp-deeply $serialized.ast, $expected, "serialized with :derive";
+
+    $deserialized = Root.from-xml: $serialized.Str, config => %( :derive );
+    cmp-deeply $deserialized, $root, "deserialized version with :derive is the same";
 }
 
 subtest "Serializer" => {
+    plan 2;
+
     my sub serializer-ver(Version:D $ver) {
-        $ver.gist
+        "Ver." ~ $ver
+    }
+    my sub deserializer-ver(LibXML::Element:D $ver-elem) {
+        if $ver-elem.textContent ~~ /^ "Ver." (\d+ % ".")/ -> $m {
+            return Version.new: ~$m[0]
+        }
+        die "Bad version format '" ~ $ver-elem.textContent ~ "'"
     }
     my class Record is xml-element<record> {
-        has Version:D $.ver is xml-element(:serializer(&serializer-ver)) is required;
+        has Version:D $.ver is xml-element(:serializer(&serializer-ver) :deserializer(&deserializer-ver)) is required;
     }
 
     my $root = Record.new(:ver(v1.2.3));
-    my $expected = "#xml" => [:record([:ver(["v1.2.3"])])];
-    cmp-deeply $root.to-xml.ast, $expected, "serialized OK";
+    my $expected = "#xml" => [:record([:ver(["Ver.1.2.3"])])];
+    my $serialized = $root.to-xml;
+
+    say $serialized.Str(:format);
+
+    cmp-deeply $serialized.ast, $expected, "serialized OK";
+
+    my Record $deserialized .= from-xml: $serialized.Str;
+    cmp-deeply $deserialized, $root, "deserialized version is the same";
 }
 
 subtest "Missing namespace prefix" => {
     plan 1;
 
     my class Record is xml-element(<record>, :ns(:pfx)) {
-        has Int $.idx is xml-element(:inherit);
+        has Int $.idx is xml-element(:derive);
         has Str $.val is xml-element(:ns(:xst));
     }
 
-    my class Root is xml-element('root', :ns('http://root.namepsace', :pfx<http://prefix.namespace>)) {
+    my class Root is xml-element('root', :ns('http://root.namespace', :pfx<http://prefix.namespace>)) {
         has Record:D $.rec is xml-element(:ns(:xstr<http://strings.namespace>)) is required;
     }
 
@@ -210,7 +257,7 @@ subtest "Missing namespace prefix" => {
 }
 
 subtest "XML:any" => {
-    plan 7;
+    plan 12;
 
     my class Record is xml-element('record') {
         has Str:D $.id is required;
@@ -226,6 +273,7 @@ subtest "XML:any" => {
 
     my LibXML::Class::Config:D $config .= new:
         severity => STRICT,
+        :derive,
         ns-map => (
             HeaderRow, # Name and namespace will be picked up from the xml-element declaration
             (TEST-NS1) => (
@@ -244,7 +292,7 @@ subtest "XML:any" => {
             }
         );
 
-    my class Root is xml-element(<root>, :ns(TEST-NS1, :pfx(TEST-NS3))) {
+    my class Root is xml-element(<root>, :derive, :ns(TEST-NS1, :pfx(TEST-NS3))) {
         has $.header is xml-element(:any, :ns(HEADER-NS));
         has $.data is xml-element(:any) is required;
         has Cool:D $.perm-name is xml-element(:any, :ns(TEST-NS1)) is required;
@@ -254,24 +302,39 @@ subtest "XML:any" => {
     my $header = HeaderRow.new(:title('testing things'), :body("lorem ipsum, та інша беліберда"));
 
     my $root = Root.new(:data("foo"), :array(1e0, 2e0, "some more"), :perm-name(pi), :$header);
-    my $expected = "#xml" => [:root([:xmlns("http://test1.namespace"), "xmlns:pfx" => "http://test3.namespace", :header([:xmlns("http://header.namespace"), "hdr:hr" => ["xmlns:hdr" => "http://header.namespace", :title("testing things"), "lorem ipsum, та інша беліберда"]]), :data([:string(["foo"])]), :perm-name([:float(["3.141592653589793"])]), :array([:float(["1"])]), :array([:float(["2"])]), :array([:string(["some more"])])])];
-    cmp-deeply $root.to-xml(:$config).ast, $expected, "all default namespaces";
+    my $expected = "#xml" => [:root([:xmlns("http://test1.namespace"), "xmlns:pfx" => "http://test3.namespace", :header([:xmlns("http://header.namespace"), "hdr:hr" => ["xmlns:hdr" => "http://header.namespace", :title("testing things"), "lorem ipsum, та інша беліберда"]]), :data([:string(["foo"])]), :perm-name([:float(["3.141592653589793e+00"])]), :array([:float(["1.0e+00"])]), :array([:float(["2.0e+00"])]), :array([:string(["some more"])])])];
+    my $serialized = $root.to-xml(:$config);
+    cmp-deeply $serialized.ast, $expected, "all default namespaces";
+    my $deserialized = Root.from-xml: $serialized.Str, :$config;
+    cmp-deeply $deserialized, $root, "deserialized all default namespaces";
 
     $root = Root.new(:data(Record.new(:id<id0>, :amount(42.12))), :array(1e0, 2e0, "some more"), :perm-name(pi));
-    $expected = "#xml" => [:root([:xmlns("http://test1.namespace"), "xmlns:pfx" => "http://test3.namespace", :data([:record([:id("id0"), :amount("42.12")])]), :perm-name([:float(["3.141592653589793"])]), :array([:float(["1"])]), :array([:float(["2"])]), :array([:string(["some more"])])])];
-    cmp-deeply $root.to-xml(:$config).ast, $expected, "all default namespaces, with header";
+    $expected = "#xml" => [:root([:xmlns("http://test1.namespace"), "xmlns:pfx" => "http://test3.namespace", :data([:record([:id("id0"), :amount("42.12")])]), :perm-name([:float(["3.141592653589793e+00"])]), :array([:float(["1.0e+00"])]), :array([:float(["2.0e+00"])]), :array([:string(["some more"])])])];
+    $serialized = $root.to-xml(:$config);
+    cmp-deeply $serialized.ast, $expected, "all default namespaces, with header";
+    $deserialized = Root.from-xml: $serialized.Str, :$config;
+    cmp-deeply $deserialized, $root, "deserialized all default namespaces, with header";
 
     $root = Root.new(:data(Record.new(:id<id0>, :amount(42.12))), :array(1, 2, "some more"), :perm-name(pi), :xml-default-ns(TEST-NS2));
-    $expected = "#xml" => [:root([:xmlns("http://test2.namespace"), "xmlns:pfx" => "http://test3.namespace", :data([:rec([:id("id0"), :amount("42.12")])]), :perm-name([:xmlns("http://test1.namespace"), :float(["3.141592653589793"])]), :array([:size(["1"])]), :array([:size(["2"])]), :array([:text(["some more"])])])];
-    cmp-deeply $root.to-xml(:$config).ast, $expected, "default to second test namespace";
+    $expected = "#xml" => [:root([:xmlns("http://test2.namespace"), "xmlns:pfx" => "http://test3.namespace", :data([:rec([:id("id0"), :amount("42.12")])]), :perm-name([:xmlns("http://test1.namespace"), :float(["3.141592653589793e+00"])]), :array([:size(["1"])]), :array([:size(["2"])]), :array([:text(["some more"])])])];
+    $serialized = $root.to-xml(:$config);
+    cmp-deeply $serialized.ast, $expected, "default to the second test namespace";
+    $deserialized = Root.from-xml: $serialized.Str, :$config, :xml-default-ns(TEST-NS2);
+    cmp-deeply $deserialized, $root, "deserialized with default to the second test namespace";
 
     $root = Root.new(:data("foo"), :array(1, 2, "some more"), :perm-name(pi), :$header, :xml-default-ns(TEST-NS2));
-    $expected = "#xml" => [:root([:xmlns("http://test2.namespace"), "xmlns:pfx" => "http://test3.namespace", :header([:xmlns("http://header.namespace"), "hdr:hr" => ["xmlns:hdr" => "http://header.namespace", :title("testing things"), "lorem ipsum, та інша беліберда"]]), :data([:text(["foo"])]), :perm-name([:xmlns("http://test1.namespace"), :float(["3.141592653589793"])]), :array([:size(["1"])]), :array([:size(["2"])]), :array([:text(["some more"])])])];
-    cmp-deeply $root.to-xml(:$config).ast, $expected, "default to second test namespace, with header";
+    $expected = "#xml" => [:root([:xmlns("http://test2.namespace"), "xmlns:pfx" => "http://test3.namespace", :header([:xmlns("http://header.namespace"), "hdr:hr" => ["xmlns:hdr" => "http://header.namespace", :title("testing things"), "lorem ipsum, та інша беліберда"]]), :data([:text(["foo"])]), :perm-name([:xmlns("http://test1.namespace"), :float(["3.141592653589793e+00"])]), :array([:size(["1"])]), :array([:size(["2"])]), :array([:text(["some more"])])])];
+    $serialized = $root.to-xml(:$config);
+    cmp-deeply $serialized.ast, $expected, "default to the second test namespace, with header";
+    $deserialized = Root.from-xml: $serialized.Str, :$config, :namespace(TEST-NS2);
+    cmp-deeply $deserialized, $root, "deserialized with default to the second test namespace, with header";
 
     $root = Root.new(:data("foo"), :array(1e1, 2, "some more"), :perm-name(pi), :xml-default-ns-pfx<pfx>);
-    $expected = "#xml" => ["pfx:root" => ["xmlns:pfx" => "http://test3.namespace", :xmlns("http://test1.namespace"), "pfx:data" => ["pfx:comment" => ["foo"]], :perm-name([:float(["3.141592653589793"])]), "pfx:array" => ["pfx:volume" => ["10"]], "pfx:array" => ["pfx:volume" => ["2"]], "pfx:array" => ["pfx:comment" => ["some more"]]]];
-    cmp-deeply $root.to-xml(:$config).ast, $expected, "default to third test namespace via a prefix";
+    $expected = "#xml" => ["pfx:root" => ["xmlns:pfx" => "http://test3.namespace", :xmlns("http://test1.namespace"), "pfx:data" => ["pfx:comment" => ["foo"]], :perm-name([:float(["3.141592653589793e+00"])]), "pfx:array" => ["pfx:volume" => ["1.0e+01"]], "pfx:array" => ["pfx:volume" => ["2"]], "pfx:array" => ["pfx:comment" => ["some more"]]]];
+    $serialized = $root.to-xml(:$config);
+    cmp-deeply $serialized.ast, $expected, "default to the third test namespace via a prefix";
+    $deserialized = Root.from-xml: $serialized.Str, :$config, :prefix<pfx>;
+    cmp-deeply $deserialized, $root, "deserialized with default the third test namespace via a prefix";
 
     $root = Root.new(:data(13), :array(1e0, 2e0, "some more"), :perm-name(pi));
     throws-like

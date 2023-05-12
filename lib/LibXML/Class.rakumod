@@ -1258,23 +1258,25 @@ class XMLSequence does Positional does Iterable {
                                  UInt:D :$index,
                                  DeserializingCtx:D :$dctx = $*LIBXML-CLASS-CTX ) is raw
     {
-        my Mu $item-type := $desc.type;
+        self.xml-try-deserializer: $desc, $elem, :!coerce, {
+            # For whatever reason, deserializer hasn't produced a value. Do it the standard way then.
+            my Mu $item-type := $desc.value-type;
 
-        if $item-type ~~ XMLObject {
-            # Make sure prefixes declared on this item descriptor are propagaded downstream.
-            my %*LIBXML-CLASS-NS-OVERRIDE = $desc.xml-namespaces;
-            my ($namespace, $prefix) =
-                $desc.infer-ns(:from(self), :default-ns($dctx.xml-default-ns), :default-pfx($dctx.xml-default-ns-pfx));
-            return $item-type.from-xml( $elem,
-                                    $.xml-document,
-                                    :name($desc.xml-name),
-                                    :$namespace,
-                                    :$prefix,
-                                    user-profile => $dctx.user-profile )
+            if $item-type ~~ XMLObject {
+                # Make sure prefixes declared on this item descriptor are propagaded downstream.
+                my %*LIBXML-CLASS-NS-OVERRIDE = $desc.xml-namespaces;
+                my ($namespace, $prefix) =
+                    $desc.infer-ns(:from(self), :default-ns($dctx.xml-default-ns), :default-pfx($dctx.xml-default-ns-pfx));
+                return $item-type.from-xml( $elem,
+                                        $.xml-document,
+                                        :name($desc.xml-name),
+                                        :$namespace,
+                                        :$prefix,
+                                        user-profile => $dctx.user-profile )
+            }
+            self.xml-try-deserializer: $desc, ($_ ?? $elem.getAttribute($_) !! $elem.textContent)
+                given $desc.value-attr
         }
-        ( $desc.value-attr
-            ?? self.xml-type-from-str($item-type, $elem.getAttribute($desc.value-attr))
-            !! self.xml-type-from-str($item-type, $elem.textContent) )
     }
 
     method AT-POS(::?CLASS:D: $idx --> Mu) is raw {
@@ -1358,6 +1360,8 @@ BEGIN {
             $ ( Mu:U $type,
                 Str :attr(:$value-attr),
                 :namespace(:$ns) is copy,
+                :&serializer,
+                :&deserializer,
                 Bool :$derive,
                 *%c))
         {
@@ -1368,7 +1372,7 @@ BEGIN {
                     :why("unexpected named argument$sfx passed to :sequence of 'xml-element' trait: "
                         ~ %c.keys.sort.join(", "))).throw;
             }
-            \(:$type, :$value-attr, :$derive, |(:$ns with $ns))
+            \(:$type, :$value-attr, :$derive, :&serializer, :&deserializer, |(:$ns with $ns))
         }
         multi sub validate-args($ (*%)) {
             LibXML::Class::X::Trait::Argument.new(

@@ -5,6 +5,8 @@ use Test::Async;
 use LibXML::Element;
 use LibXML::Class;
 
+plan 3;
+
 subtest "Just value" => {
     plan 2;
 
@@ -43,7 +45,7 @@ subtest "Value and element" => {
         has Rat:D $.foo is required;
     }
 
-    proto sub serialize-rec(|) {*}
+    my proto sub serialize-rec(|) {*}
     multi sub serialize-rec(LibXML::Element:D $item-elem, Record1:D $rec) {
         $item-elem.setAttribute('trick', $rec.raku);
     }
@@ -51,7 +53,7 @@ subtest "Value and element" => {
         "(" ~ $rec.foo ~ ")"
     }
 
-    sub deserialize-str(LibXML::Element:D $elem) {
+    my sub deserialize-str(LibXML::Element:D $elem) {
         if $elem.hasAttribute('trick') {
             return EVAL $elem.getAttribute('trick');
         }
@@ -85,6 +87,61 @@ subtest "Value and element" => {
         cmp-deeply $deserialized, $root, "deserialized OK";
     }
 
+}
+
+subtest "Sequence" => {
+    plan 3;
+
+    my class SItem is xml-element<si> {
+        has Int:D $.order is required;
+    }
+
+    proto sub deserialize-si(|) {*}
+    multi sub deserialize-si(LibXML::Element:D $elem) {
+        # This would also test for xml-I-cant since if it fails in a way then the resulting AST would differ.
+        xml-I-cant unless $elem.localName eq 'si';
+        SItem.new: order => $elem.getAttribute('ord').Num.Int
+    }
+    multi sub deserialize-si(Str:D $val) {
+        ($val ~~ /^ v $<ver>=[\d .+] $/) andthen Version.new: .<ver>
+    }
+
+    my proto sub serialize-si(|) {*}
+    multi sub serialize-si(LibXML::Element:D $ielem, SItem:D $value) {
+        $ielem.setAttribute: "ord", $value.order.Num.fmt('%.2e')
+    }
+    multi sub serialize-si(Version:D $v) {
+        $v.gist
+    }
+
+    my class XMLSeq
+        is xml-element(
+            :sequence(
+                (SItem, :serializer(&serialize-si), :deserializer(&deserialize-si)),
+                :ver(Version, :serializer(&serialize-si), :deserializer(&deserialize-si))
+            ) ) {}
+
+    my $xs = XMLSeq.new;
+    my $minor = 0;
+    for ^10 {
+        $xs.push: SItem.new(:order($_));
+        $xs.push: Version.new("$_\.{$minor++}") if $_ % 3 == 0
+    }
+
+    my $serialized = $xs.to-xml;
+    my $expected = "#xml" => [:XMLSeq([:si([:ord("0.00e+00")]), :ver(["v0.0"]), :si([:ord("1.00e+00")]), :si([:ord("2.00e+00")]), :si([:ord("3.00e+00")]), :ver(["v3.1"]), :si([:ord("4.00e+00")]), :si([:ord("5.00e+00")]), :si([:ord("6.00e+00")]), :ver(["v6.2"]), :si([:ord("7.00e+00")]), :si([:ord("8.00e+00")]), :si([:ord("9.00e+00")]), :ver(["v9.3"])])];
+    cmp-deeply $serialized.ast, $expected, "serialized OK";
+
+    my $deserialized = XMLSeq.from-xml: $serialized.Str;
+
+    subtest "check items" => {
+        plan $xs.elems + 1;
+        is $deserialized.elems, $xs.elems, "all sequence items are picked from the source";
+        for ^($deserialized.elems max $xs.elems) {
+            cmp-deeply $deserialized[$_], $xs[$_], "item at position $_";
+        }
+    }
+    cmp-deeply $deserialized, $xs, "sequence deserialized";
 }
 
 done-testing;

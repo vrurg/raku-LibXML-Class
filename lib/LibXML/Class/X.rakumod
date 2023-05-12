@@ -175,7 +175,7 @@ class ReMooify does Base {
     has Mu:U $.type is required;
     method message {
         "Don't use lazy mode with attribute "
-            ~ $!attr.name ~ " of " ~ $.type.^name
+            ~ $!attr.name ~ " of " ~ $!type.^name
             ~ " to which :mooish trait is already applied"
     }
 }
@@ -205,7 +205,7 @@ role Deserialize does Base {
 my class Deserialize::BadValue does Deserialize {
     has Str:D $.value is required;
     method message {
-        "XML value '" ~ $.value ~ "' cannot be deserialized into an object of type " ~ $.type.^name
+        "XML value '" ~ $.value ~ "' cannot be deserialized into an object of type " ~ $!type.^name
     }
 }
 
@@ -230,7 +230,7 @@ my class Deserialize::UnknownTag does Deserialize {
     has Str:D $.xml-name is required;
     method message {
         "Don't know how to deserialize a sequence element <" ~ $!xml-name
-            ~ "> for sequence " ~ $.type.^name
+            ~ "> for sequence " ~ $!type.^name
     }
 }
 
@@ -243,7 +243,7 @@ my class Deserialize::DuplicateTag does Deserialize {
     method message {
         "XML name '$.name' in namespace '$.namespace' is claimed by "
             ~ $.desc1.descriptor-kind ~ " and by " ~ $.desc2.descriptor-kind
-            ~ " for type " ~ $.type.^name
+            ~ " for type " ~ $!type.^name
     }
 }
 
@@ -255,7 +255,7 @@ my class Deserialize::DuplicateType does Deserialize {
     method message {
         "Item type '{$.desc1.type}' in namespace '$.namespace' is claimed by "
             ~ $.desc1.descriptor-kind ~ " and by " ~ $.desc2.descriptor-kind
-            ~ " for type " ~ $.type.^name
+            ~ " for type " ~ $!type.^name
     }
 }
 
@@ -263,7 +263,7 @@ my class Deserialize::Role does Deserialize {
     has $.desc is required;
     method message {
         "Destination type for " ~ $!desc.descriptor-kind
-            ~ " of type " ~ $.type.^name
+            ~ " of type " ~ $!type.^name
             ~ " is role " ~ $!desc.nominal-type.^name
             ~ " for which no class can be inferred; consider using any-mapping or a custom deserializer"
     }
@@ -278,7 +278,7 @@ my class Serialize::Impossible does Serialize {
     has Str:D $.why is required;
 
     method message {
-        "Cannot serialize " ~ ~ type-or-instance($.what) ~ " for xml-element " ~ $.type.^name ~ ": " ~ $.why
+        "Cannot serialize " ~ ~ type-or-instance($.what) ~ " for xml-element " ~ $!type.^name ~ ": " ~ $.why
     }
 }
 
@@ -293,7 +293,7 @@ my class Config::ImmutableGlobal does Config {
 my class Config::TypeNoNS does Config {
     has Mu:U $.type is required;
     method message {
-        "Type " ~ $.type.^name
+        "Type " ~ $!type.^name
             ~ " doesn't have a default namespace, cannot be registered in the map. Try either:\n"
             ~ "  - add a positional default namespace argument to xml-element trait\n"
             ~ "  - if there are namespace definitions in xml-element arguments try using a prefix"
@@ -303,7 +303,7 @@ my class Config::TypeNoNS does Config {
 my class Config::WhateverNS does Config {
     has Mu:U $.type is required;
     method message {
-        "Whatever (*) namespace cannot be registerd in the namespace map; attempted for type " ~ $.type.^name
+        "Whatever (*) namespace cannot be registerd in the namespace map; attempted for type " ~ $!type.^name
     }
 }
 
@@ -312,7 +312,7 @@ my class Config::TypeDuplicate does Config {
     has Str:D $.xml-name is required;
     has Str:D $.namespace is required;
     method message {
-        "Type " ~ $.type.^name
+        "Type " ~ $!type.^name
             ~ " cannot be registered as element '" ~ $.xml-name
             ~ "' because there is already an entry with this name in namespace '"
             ~ $.namespace ~ "'"
@@ -323,7 +323,7 @@ my class Config::NSMismatch does Config {
     has Mu:U $.type is required;
     has Str:D $.namespace is required;
     method message {
-        "Type " ~ $.type.^name
+        "Type " ~ $!type.^name
             ~ " cannot be registered under namespace '" ~ $.namespace
             ~ "' because type's default differs"
     }
@@ -333,18 +333,18 @@ my class Config::TypeMapAmbigous does Config {
     has Mu:U $.type is built(:bind) is required;
     has @.variants is required;
     method message {
-        "Type '" ~ $.type.^name ~ "' cannot be unambiously mapped into an XML element; possible variants:"
+        "Type '" ~ $!type.^name ~ "' cannot be unambiously mapped into an XML element; possible variants:"
         ~ @.variants.map({ "\n  <" ~ .xml-name ~ "> in namespace '" ~ .ns ~ "'" }).join
     }
 }
 
 role Sequence does Base {
-    has Mu $.type is built(:bind) is required;
+    has Mu $.type is required;
 }
 
-my class Sequence::NoChildTypes does Sequence {
+my class Sequence::NoItemDesc does Sequence {
     method message {
-        "Type " ~ $.type.^name ~ " is declared sequence but no child types provided in the trait argument"
+        "Type " ~ $!type.^name ~ " is declared :sequence, but no item descriptions provided in the trait argument"
     }
 }
 
@@ -384,7 +384,7 @@ class NonClass does Base {
     has Mu:U $.type is required;
     has Str:D $.what is required;
     method message {
-        "Non-class type object " ~ $.type.^name ~ " cannot be used to " ~ $.what
+        "Non-class type object " ~ $!type.^name ~ " cannot be used to " ~ $.what
     }
 }
 

@@ -1353,7 +1353,7 @@ our role XMLSequential does XMLRepresentation is XMLSequence {
 BEGIN {
     my sub typeobj-as-sequence(Mu:U \typeobj, $sequence, Mu $any is raw) {
         my \child-types = $sequence.List;
-        LibXML::Class::X::Sequence::NoChildTypes.new(:type(typeobj)).throw unless child-types.elems;
+        LibXML::Class::X::Sequence::NoItemDesc.new(:type(typeobj)).throw unless child-types.elems;
 
         my proto sub validate-args(Capture:D) {*}
         multi sub validate-args(

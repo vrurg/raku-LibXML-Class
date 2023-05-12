@@ -406,7 +406,6 @@ class XMLObject does LibXML::Class::Node {
                 CONTROL {
                     when LibXML::Class::CX::Cannot {
                         $use-type-to-str = True;
-                        .rethrow
                     }
                     default { .rethrow }
                 }

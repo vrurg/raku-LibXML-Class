@@ -70,7 +70,7 @@ subtest "Base serialization" => {
     subtest "check items" => {
         plan $xs.elems + 1;
         is $deserialized.elems, $xs.elems, "all sequence items are picked from the source";
-        for ^$deserialized.elems {
+        for ^($deserialized.elems max $xs.elems) {
             cmp-deeply $deserialized[$_], $xs[$_], "item at position $_";
         }
     }
@@ -124,7 +124,7 @@ subtest "Namespaced" => {
     subtest "check items" => {
         plan $xs.elems + 1;
         is $deserialized.elems, $xs.elems, "all sequence items are picked from the source";
-        for ^$deserialized.elems {
+        for ^($deserialized.elems max $xs.elems) {
             cmp-deeply $deserialized[$_], $xs[$_], "item at position $_";
         }
     }
@@ -179,7 +179,7 @@ subtest "Imposed namespace" => {
     subtest "check items" => {
         plan $xs.elems + 1;
         is $deserialized.elems, $xs.elems, "all sequence items are picked from the source";
-        for ^$deserialized.elems {
+        for ^($deserialized.elems max $xs.elems) {
             cmp-deeply $deserialized[$_], $xs[$_], "item at position $_";
         }
     }
@@ -234,7 +234,7 @@ subtest "Derive by default" => {
     subtest "check items" => {
         plan $xs.elems + 1;
         is $deserialized.elems, $xs.elems, "all sequence items are picked from the source";
-        for ^$deserialized.elems {
+        for ^($deserialized.elems max $xs.elems) {
             cmp-deeply $deserialized[$_], $xs[$_], "item at position $_";
         }
     }
@@ -286,7 +286,7 @@ subtest "XML:any" => {
         subtest "check items" => {
             plan $xs-any.elems + 1;
             is $deserialized.elems, $xs-any.elems, "all sequence items are picked from the source";
-            for ^$deserialized.elems {
+            for ^($deserialized.elems max $xs-any.elems) {
                 cmp-deeply $deserialized[$_], $xs-any[$_], "item at position $_";
             }
         }
@@ -308,7 +308,7 @@ subtest "XML:any" => {
         subtest "check items" => {
             plan $xs-any.elems + 1;
             is $deserialized.elems, $xs-any.elems, "all sequence items are picked from the source";
-            for ^$deserialized.elems {
+            for ^($deserialized.elems max $xs-any.elems) {
                 cmp-deeply $deserialized[$_], $xs-any[$_], "item at position $_";
             }
         }
@@ -327,7 +327,7 @@ subtest "XML:any" => {
         subtest "check items" => {
             plan $xs-any.elems + 1;
             is $deserialized.elems, $xs-any.elems, "all sequence items are picked from the source";
-            for ^$deserialized.elems {
+            for ^($deserialized.elems max $xs-any.elems) {
                 cmp-deeply $deserialized[$_], $xs-any[$_], "item at position $_";
             }
         }

@@ -26,3 +26,5 @@ method xml-build-name {
 method descriptor-kind {
     "sequence item " ~ ($.xml-name || $!type.^name)
 }
+
+method value-type(--> Mu) { $!type }

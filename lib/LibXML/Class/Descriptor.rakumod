@@ -8,8 +8,12 @@ use LibXML::Class::NS;
 
 also does LibXML::Class::Node;
 
-method nominal-type {...}
-method descriptor-kind(--> Str:D) {...}
+my class NOT-SET {
+    method Bool { False }
+}
+
+has &.serializer is built(:bind);
+has &.deserializer is built(:bind);
 
 # If true then object must get its default namespace from the declarant type object or whatever is passed in :from
 # of infer-ns method.
@@ -18,7 +22,9 @@ has Bool $.derive;
 # Where this object was originally declared.
 has Mu $.declarant is built(:bind) is required;
 
-my class NOT-SET {}
+method nominal-type {...}
+method value-type {...}
+method descriptor-kind(--> Str:D) {...}
 
 submethod TWEAK(:$ns = NOT-SET) {
     self.xml-set-ns-from-defs( self.preprocess-ns($ns) );
@@ -100,3 +106,8 @@ method infer-ns( ::?CLASS:D:
 
     ($namespace, $prefix)
 }
+
+method has-serializer(::?CLASS:D:)        { &!serializer.defined }
+method has-deserializer(::?CLASS:D:)      { &!deserializer.defined }
+method serializer-cando(::?CLASS:D: |c)   { (&!serializer andthen .cando(c)) // False }
+method deserializer-cando(::?CLASS:D: |c) { (&!deserializer andthen .cando(c)) // False }

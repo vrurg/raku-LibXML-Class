@@ -1,0 +1,90 @@
+use v6.e.PREVIEW;
+use MONKEY-SEE-NO-EVAL;
+use Test::Async;
+
+use LibXML::Element;
+use LibXML::Class;
+
+subtest "Just value" => {
+    plan 2;
+
+    my class Record {
+        has Num:D $.n is required;
+        has Str:D $.s is required;
+    }
+
+    my sub serialize-rec(Record:D $r) { $r.raku }
+    my sub deserialize-rec(Str:D $v) { EVAL $v }
+
+    my class Root is xml-element<root> {
+        has $.rec is xml-element(:serializer(&serialize-rec), :deserializer(&deserialize-rec));
+    }
+
+    my $root = Root.new: rec => Record.new(:n(pi), :s("москалям горіти в пеклі!"));
+
+    my $serialized = $root.to-xml;
+    my $expected = "#xml" => [:root([:rec(["Record.new(n => 3.141592653589793e0, s => \"москалям горіти в пеклі!\")"])])];
+    cmp-deeply $serialized.ast, $expected, "serialized OK";
+
+    my $deserialized = Root.from-xml: $serialized.Str;
+    cmp-deeply $deserialized, $root, "deserialized OK";
+}
+
+subtest "Value and element" => {
+    plan 2;
+
+    my role Recordish {};
+
+    my class Record1 is xml-element<rec1> does Recordish {
+        has Str:D $.foo is required;
+    }
+
+    my class Record2 is xml-element<rec2> does Recordish {
+        has Rat:D $.foo is required;
+    }
+
+    proto sub serialize-rec(|) {*}
+    multi sub serialize-rec(LibXML::Element:D $item-elem, Record1:D $rec) {
+        $item-elem.setAttribute('trick', $rec.raku);
+    }
+    multi sub serialize-rec(Record2:D $rec) {
+        "(" ~ $rec.foo ~ ")"
+    }
+
+    sub deserialize-str(LibXML::Element:D $elem) {
+        if $elem.hasAttribute('trick') {
+            return EVAL $elem.getAttribute('trick');
+        }
+        Record2.new: foo => EVAL($elem.textContent)
+    }
+
+    my class Root is xml-element<root> {
+        has Recordish:D $.rec is xml-element(:serializer(&serialize-rec), :deserializer(&deserialize-str));
+    }
+
+    subtest "with element serializer multi-candidate" => {
+        plan 2;
+        my $rec = Record1.new: :foo("with some text");
+        my $root = Root.new: :$rec;
+        my $serialized = $root.to-xml;
+        my $expected = "#xml" => [:root([:rec([:trick("Record1.new(foo => \"with some text\", xml-name => \"rec1\")")])])];
+        cmp-deeply $serialized.ast, $expected, "serialized OK";
+        my $deserialized = Root.from-xml: $serialized.Str;
+        cmp-deeply $deserialized, $root, "deserialized OK";
+    }
+
+    subtest "with value serializer multi-candidate" => {
+        plan 2;
+        my $rec = Record2.new: :foo(42.12);
+        my $root = Root.new: :$rec;
+
+        my $serialized = $root.to-xml;
+        my $expected = "#xml" => [:root([:rec(["(42.12)"])])];
+        cmp-deeply $serialized.ast, $expected, "serialized OK";
+        my $deserialized = Root.from-xml: $serialized.Str;
+        cmp-deeply $deserialized, $root, "deserialized OK";
+    }
+
+}
+
+done-testing;

@@ -21,6 +21,7 @@
     "LibXML::Class::Attr::Node": "lib/LibXML/Class/Attr/Node.rakumod",
     "LibXML::Class::Attr::XMLish": "lib/LibXML/Class/Attr/XMLish.rakumod",
     "LibXML::Class::Config": "lib/LibXML/Class/Config.rakumod",
+    "LibXML::Class::CX": "lib/LibXML/Class/CX.rakumod",
     "LibXML::Class::Descriptor": "lib/LibXML/Class/Descriptor.rakumod",
     "LibXML::Class::Document": "lib/LibXML/Class/Document.rakumod",
     "LibXML::Class::HOW::AttrContainer": "lib/LibXML/Class/HOW/AttrContainer.rakumod",

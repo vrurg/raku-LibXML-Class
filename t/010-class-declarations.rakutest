@@ -183,8 +183,8 @@ subtest "Attributes" => {
     ok Multi-Attribute.^xml-get-attr('$!tonnage').lazy.defined, "lazyness is implicitly defined for a basic type";
     nok Multi-Attribute.^xml-get-attr('$!tonnage').lazy, "lazyness is disabled for a basic type by default";
 
-    is Multi-Attribute.^xml-get-attr('$!tonnage').serializer, Nil, "no serializer by default";
-    is Multi-Attribute.^xml-get-attr('$!tonnage').deserializer, Nil, "no deserializer by default";
+    nok Multi-Attribute.^xml-get-attr('$!tonnage').has-serializer, "no serializer by default";
+    nok Multi-Attribute.^xml-get-attr('$!tonnage').has-deserializer, "no deserializer by default";
 
     my class Bar {
         has Str $.bar;

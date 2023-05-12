@@ -84,13 +84,32 @@ class XMLValueElement does LibXML::Class::Attr::Node does XMLContainer {
 }
 
 # For attributes mapping into XML #text
-class XMLTextNode does LibXML::Class::Attr::XMLish {
+class XMLTextNode does LibXML::Class::Attr::Node {
     # Should we trim any text before use?
     has Bool $.trim;
 
     method kind is pure { "text element" }
 
-    method xml-name { '#text' }
+    method xml-build-name { '#text' }
+
+    multi method preprocess-ns(::?CLASS: Mu \ns) {
+        LibXML::Class::X::Attr::NoNamespace.new(:$!attr, :why("<#text> node doesn't have it")).throw
+            if ns
+    }
+
+    method xml-set-ns-from-defs(\ns-defs) {
+        LibXML::Class::X::Attr::NoNamespace.new(:$!attr, :why("<#text> node doesn't have it")).throw
+            if ns-defs;
+    }
+
+    BEGIN {
+        my &m = my method (|) {
+            LibXML::Class::X::Attr::NoNamespace.new(:$!attr, :why("<#text> node doesn't have it")).throw
+        };
+        for <infer-ns compose-ns xml-guess-default-ns> -> $mname {
+            ::?CLASS.^add_method($mname, &m);
+        }
+    }
 }
 
 class XMLPositional is XMLValueElement {

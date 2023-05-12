@@ -3,6 +3,10 @@ unit module LibXML::Class::Types;
 
 role IsImplicitValue {}
 
+class NOT-SET is Nil is export(:NOT-SET) {
+    method Bool { False }
+}
+
 subset BasicType is export of Mu where { $_<> =:= Any || $_<> =:= Mu || ($_ ~~ Numeric | Stringy | Dateish | Bool) };
 
 # Ordered hash. I'm avoiding Hash::Ordered from the ecosystem because it is using Proxy and it'd be slower than I wish.

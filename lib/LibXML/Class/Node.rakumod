@@ -12,7 +12,7 @@ use LibXML::Class::XML;
 
 also does LibXML::Class::NS;
 
-has Str:D $.xml-name is mooish(:lazy<xml-build-name>, :predicate);
+has Str:D $.xml-name is mooish(:lazy<xml-build-name>, :predicate<xml-has-name>);
 
 method xml-apply-ns( ::?CLASS:D:
                      LibXML::Element:D $dest-elem,

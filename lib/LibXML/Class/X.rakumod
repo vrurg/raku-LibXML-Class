@@ -5,6 +5,10 @@ use LibXML::Element;
 use LibXML::Node;
 use LibXML::Attr;
 
+my sub type-or-instance(Mu $what) {
+    ($what.defined ?? "an instance of " !! "a type object ") ~ $what.^name
+}
+
 role Base is Exception {}
 
 class AdHoc does Base {
@@ -39,6 +43,13 @@ my class Attr::Sigil does Attr {
     has Str $.why;
     method message {
         $.what ~ " cannot be used with " ~ $.attr.name.substr(0, 1) ~ "-sigilled " ~ self.message-attr
+    }
+}
+
+my class Attr::NoNamespace does Attr {
+    has Str $.why;
+    method message {
+        "Namespaces cannot be used with " ~ self.message-attr ~ |(": " ~ $_ with $!why)
     }
 }
 
@@ -248,16 +259,26 @@ my class Deserialize::DuplicateType does Deserialize {
     }
 }
 
-role Serialize does Base {}
+my class Deserialize::Role does Deserialize {
+    has $.desc is required;
+    method message {
+        "Destination type for " ~ $!desc.descriptor-kind
+            ~ " of type " ~ $.type.^name
+            ~ " is role " ~ $!desc.nominal-type.^name
+            ~ " for which no class can be inferred; consider using any-mapping or a custom deserializer"
+    }
+}
+
+role Serialize does Base {
+    has Mu:U $.type is required;
+}
 
 my class Serialize::Impossible does Serialize {
     has Mu $.what is required;
     has Str:D $.why is required;
 
     method message {
-        "Cannot serialize " ~
-            ($.what.defined ?? "an instance of " !! "a type object ") ~ $.what.^name
-            ~ ": " ~ $.why
+        "Cannot serialize " ~ ~ type-or-instance($.what) ~ " for xml-element " ~ $.type.^name ~ ": " ~ $.why
     }
 }
 

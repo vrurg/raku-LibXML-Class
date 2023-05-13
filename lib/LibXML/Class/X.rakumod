@@ -281,6 +281,17 @@ my class Deserialize::Role does Deserialize {
     }
 }
 
+my class Deserialize::New does Deserialize {
+    has Exception:D $.exception is required;
+    has LibXML::Element:D $.elem is required;
+    method message {
+        "An exception " ~ $!exception.^name ~ " occured while instantiating "
+        ~ $!type.^name ~ " from " ~ brief-elem-str($!elem) ~ ":\n"
+        ~ ( (try { $!exception.message } // "*original exception message cannot be produced*")
+            ~ (try { "\n" ~ $!exception.backtrace.Str } // "")).indent(4)
+    }
+}
+
 role Serialize does Base {
     has Mu:U $.type is required;
 }

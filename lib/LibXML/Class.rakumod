@@ -848,7 +848,14 @@ class XMLObject does LibXML::Class::Node {
             }
         }
 
-        self.xml-create: |$dctx.final-profile
+        {
+            CATCH {
+                default {
+                    LibXML::Class::X::Deserialize::New.new( :type(self.WHAT), :exception($_), :$elem ).throw
+                }
+            }
+            self.xml-create: |$dctx.final-profile
+        }
     }
 
     method clone-from(Mu:D $obj) {

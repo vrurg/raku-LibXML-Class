@@ -20,12 +20,24 @@ class NSMapType {
     has Str:D $.xml-name is required;
 }
 
+class Derive {
+    has Bool $.attribute;
+    has Bool $.element;
+
+    multi method new(Bool:D $all-set) {
+        self.new: :attribute($all-set), :element($all-set)
+    }
+    multi method new($options) {
+        self.new: |$options.List.Capture
+    }
+}
+
 has SerializeSeverity:D $.severity = WARN;
 
 # Bypass laziness and deserialize immediately
 has Bool:D $.eager = False;
 # Default for :derive of xml-element trait
-has Bool:D $.derive = False;
+has Derive:D() $.derive .= new;
 
 # Namespace -> element name -> class
 has %!ns-map;

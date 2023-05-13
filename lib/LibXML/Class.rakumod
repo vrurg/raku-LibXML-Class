@@ -1502,7 +1502,7 @@ BEGIN {
                                   Mu :$sequence = NOT-SET,
                                   Mu :$any = NOT-SET,
                                   Bool :$lazy,
-                                  Bool :$derive,
+                                  :$derive,
                                   Bool :$impose-ns,
                                   :$ns is raw,
                                  *%named )

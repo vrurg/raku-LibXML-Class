@@ -26,6 +26,7 @@ has Mu $.declarant is built(:bind) is required;
 
 method nominal-type {...}
 method value-type {...}
+method config-derive {...}
 method descriptor-kind(--> Str:D) {...}
 
 submethod TWEAK(:$ns = NOT-SET) {
@@ -67,7 +68,7 @@ method infer-ns( ::?CLASS:D:
     my (Str $namespace, Str $prefix) = ($.xml-default-ns, $.xml-default-ns-pfx);
 
     my $derive-forced := $!derive.defined;
-    my $derive := $!derive // ($*LIBXML-CLASS-CONFIG andthen .derive) // False;
+    my $derive := $!derive // self.config-derive // False;
 
     without ($namespace // $prefix) {
         if $derive {

@@ -31,6 +31,8 @@ class XMLAttribute does LibXML::Class::Attr::Node {
     # xml-attribute never uses namespace of its type.
     method derive-from-type(--> False) is pure {}
 
+    method config-derive is raw { $*LIBXML-CLASS-CONFIG andthen .derive.attribute }
+
     # xml-attribute only takes a prefix when :impose-ns is involved. Default namespace is not used because it is not
     # guaranteed that a prefix for it exists.
     multi method preprocess-ns(Bool:D $ns) {
@@ -78,6 +80,8 @@ class XMLValueElement does LibXML::Class::Attr::Node does XMLContainer {
     # Is it a xs:any kind of element? If so, the final type would be looked up in namespace-based mapping in config.
     has Bool $!any is built;
 
+    method config-derive is raw { $*LIBXML-CLASS-CONFIG andthen .derive.element }
+
     method kind is pure { "value element" }
 
     method is-any { $!any }
@@ -91,6 +95,8 @@ class XMLTextNode does LibXML::Class::Attr::Node {
     method kind is pure { "text element" }
 
     method xml-build-name { '#text' }
+
+    method config-derive is raw { False }
 
     multi method preprocess-ns(::?CLASS: Mu \ns) {
         LibXML::Class::X::Attr::NoNamespace.new(:$!attr, :why("<#text> node doesn't have it")).throw

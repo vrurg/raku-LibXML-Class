@@ -542,7 +542,10 @@ class XMLObject does LibXML::Class::Node {
                 # effectively loosing the dynamic context and all $*LIBXML-CLASS variables. .eager forces it to be
                 # executed in place.
                 initializer.map({
-                    self.xml-coerce-into-attr($attr, $_)
+                    $attr.type-check:
+                        self.xml-coerce-into-attr($attr, $_),
+                        # Use code to postpone message generation until really needed
+                        { "while deserializing " ~ brief-elem-str($_) }
                 }).eager
             }
         }
@@ -550,10 +553,16 @@ class XMLObject does LibXML::Class::Node {
     }
 
     multi method xml-deserialize-attr(::?CLASS:D: Str:D $attr-name, LibXML::Class::Attr::XMLish:D $attr) {
+        my Mu $value := Nil;
         with $!xml-lazies{$attr-name} -> \initializer {
-            return self.xml-lazy-deserialize-context: :desc($attr), { self.xml-coerce-into-attr($attr, initializer) }
+            self.xml-lazy-deserialize-context: :desc($attr), {
+                $value := self.xml-coerce-into-attr($attr, initializer);
+            }
         }
-        Nil
+        $attr.type-check:
+            $value,
+            # Use code to postpone message generation until really needed
+            { "while deserializing " ~ brief-elem-str($!xml-backing) }
     }
 
     method xml-decontainerize(LibXML::Element:D $elem,

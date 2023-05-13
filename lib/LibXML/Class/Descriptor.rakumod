@@ -2,9 +2,11 @@ use v6.e.PREVIEW;
 unit role LibXML::Class::Descriptor;
 
 use LibXML::Node;
+use LibXML::Element;
 
 use LibXML::Class::Node;
 use LibXML::Class::NS;
+use LibXML::Class::X;
 
 also does LibXML::Class::Node;
 
@@ -105,6 +107,15 @@ method infer-ns( ::?CLASS:D:
     }
 
     ($namespace, $prefix)
+}
+
+method type-check(Mu \value, $when --> Mu) is raw {
+    my \vtype = self.value-type;
+    unless (value ~~ vtype) || (value ~~ Nil && !(vtype.^archetypes.definite && vtype.^definite)) {
+        LibXML::Class::X::TypeCheck.new(
+            :descriptor(self), :when($when ~~ Code ?? $when() !! $when.Str), :got(value), :expected(vtype)).throw
+    }
+    value
 }
 
 method has-serializer(::?CLASS:D:)        { &!serializer.defined }

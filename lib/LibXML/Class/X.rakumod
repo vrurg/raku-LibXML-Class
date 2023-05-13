@@ -5,6 +5,8 @@ use LibXML::Element;
 use LibXML::Node;
 use LibXML::Attr;
 
+use LibXML::Class::Utils;
+
 my sub type-or-instance(Mu $what) {
     ($what.defined ?? "an instance of " !! "a type object ") ~ $what.^name
 }
@@ -13,6 +15,16 @@ role Base is Exception {}
 
 class AdHoc does Base {
     has Str:D $.message is required;
+}
+
+class TypeCheck does Base is X::TypeCheck {
+    has Any:D $.descriptor is required;
+    has Str:D $.when is required;
+    method message {
+        "Type check failed for " ~ $!descriptor.descriptor-kind
+            ~ " of " ~ $!descriptor.declarant.^name
+            ~ " " ~ $!when ~ ";\n    " ~ self.explain
+    }
 }
 
 class TraitPosition does Base {

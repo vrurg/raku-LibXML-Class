@@ -1,10 +1,10 @@
 use v6.e.PREVIEW;
 unit module LibXML::Class::Utils;
 
+use LibXML::Element;
 use LibXML::Namespace;
 
 use LibXML::Class::Types;
-use LibXML::Class::X;
 
 sub nominalize-type(Mu \type) is raw is pure is export {
     type.^archetypes.nominalizable ?? type.^nominalize !! type
@@ -20,3 +20,7 @@ sub merge-in-namespaces(Associative:D \into, Associative \from) is export {
         into.{$pfx} = $ns unless into.EXISTS-KEY($pfx);
     }
 }
+
+# In various reporting cases it makes sense to display an XML element without children and namespaces but with
+# attributes, for easier identification.
+sub brief-elem-str(LibXML::Element:D $elem) is export { $elem.canonicalize(:xpath('(. | @*)')) }

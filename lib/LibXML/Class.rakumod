@@ -1327,7 +1327,7 @@ class XMLSequence does Positional does Iterable {
 
             @!xml-seq-elems[$idx]:delete;
 
-            self.xml-deserialize-item($desc, $elem, :index($idx))
+            @!xml-items[$idx] := self.xml-deserialize-item($desc, $elem, :index($idx))
         }
     }
 

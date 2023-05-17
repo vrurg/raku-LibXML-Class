@@ -1,14 +1,15 @@
 use v6.e.PREVIEW;
 unit module LibXML::Class::X;
 
+use nqp;
 use LibXML::Element;
 use LibXML::Node;
 use LibXML::Attr;
 
 use LibXML::Class::Utils;
 
-my sub type-or-instance(Mu $what) {
-    ($what.defined ?? "an instance of " !! "a type object ") ~ $what.^name
+my sub type-or-instance(Mu \what) {
+    (nqp::isconcrete(nqp::decont(what)) ?? "an instance of " !! "a type object ") ~ what.^name
 }
 
 role Base is Exception {}

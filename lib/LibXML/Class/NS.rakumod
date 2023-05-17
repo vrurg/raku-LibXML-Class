@@ -8,6 +8,7 @@ use LibXML::Element;
 
 use LibXML::Class::Types;
 use LibXML::Class::Utils;
+use LibXML::Class::X;
 
 has Str $!xml-default-ns;
 has Str $!xml-default-ns-pfx;

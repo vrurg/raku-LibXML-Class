@@ -373,11 +373,12 @@ my class Sequence::NoItemDesc does Sequence {
 }
 
 my class Sequence::ChildType does Sequence {
-    has Mu $.child-decl;
+    has Mu $!child-decl is built(:bind);
+
+    method child-decl is raw { $!child-decl }
 
     method message {
-        "Object of type "
-            ~ $.child-decl.^name
+        type-or-instance($!child-decl).tc
             ~ " cannot be used as a child element declaration for sequnce type "
             ~ $!type.^name
     }

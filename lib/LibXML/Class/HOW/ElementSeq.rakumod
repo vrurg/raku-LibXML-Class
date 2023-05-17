@@ -58,20 +58,27 @@ method xml-build-array-type(@child-types) {
 }
 
 method xml-build-from-mro(Mu \obj) {
-    my Array[LibXML::Class::ItemDescriptor:D] %type2desc{Mu};
+    my Array[LibXML::Class::ItemDescriptor:D] %type2desc{Mu:U};
     my @child-types;
     my @all-desc;
 
     $!xml-either-any = False;
 
     for self.mro(obj, :roles).grep({ .HOW ~~ ::?ROLE }).reverse -> \typeobj {
+            # note "? 0. ", %type2desc.raku;
         # With .reverse and the following notation subclasses can override child element declarations. Say, Seq1
         # defines a child :foo(Foo), but Seq2 is Seq1 and defines :foo(Bar). Then sequence tag <foo> would resolve
         # into Bar for Seq2 instances.
         for typeobj.^xml-item-descriptors -> LibXML::Class::ItemDescriptor:D $desc {
-            %type2desc{$desc.type}.push: $desc;
+            # note "? 1a. ", %type2desc.raku;
+            # %type2desc{$desc.type.WHAT} := my LibXML::Class::ItemDescriptor:D @;
+            # # note "? 1b. ", %type2desc.raku;
+            # # note "? ON ", obj.^name, " for ", $desc.type.^name, ": ", %type2desc{$desc.type}.WHICH;
+            # %type2desc{$desc.type.WHAT}.push: $desc;
+            %type2desc.append: ($desc.type.WHAT) => $desc;
             @all-desc.push: $desc;
             @child-types.push: $desc.type;
+            # note "? 2. ", %type2desc.raku;
         }
 
         $!xml-either-any ||= typeobj.^xml-any;

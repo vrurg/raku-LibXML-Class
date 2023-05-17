@@ -21,9 +21,6 @@ also does LibXML::Class::HOW::Imply;
 also does LibXML::Class::HOW::Named;
 also does LibXML::Class::NS;
 
-# Should we try using laziness for XMLValueElement attributes?
-has Bool $!xml-lazy;
-
 # List of xml-element roles
 has $!xml-roles;
 
@@ -52,7 +49,7 @@ method xml-compose-element(Mu \obj) {
         for $!xml-roles -> Mu \xml-role {
             for xml-role.^xml-attrs.values -> LibXML::Class::Attr::XMLish:D $descriptor {
                 my $attr = self.get_attribute_for_usage(obj, $descriptor.attr.name);
-                self.xml-attr-register(obj, $descriptor.clone(:$attr));
+                self.xml-attr-register(obj, $descriptor.clone(:$attr, :xml-name($descriptor.xml-name)));
             }
 
             if $check-pun && xml-role.^group =:= pun-source {
@@ -109,21 +106,18 @@ method xml-set-ns-defaults(Mu, $ns) {
     self.xml-set-ns-from-defs($ns)
 }
 
-method xml-set-lazy(Mu, Bool:D $!xml-lazy) {}
-method xml-is-lazy(Mu) { $!xml-lazy }
-
-method xml-lazify-attributes(Mu \obj) {
-    for self.xml-attrs(obj).values -> $attr-desc {
-        if $attr-desc.lazy // ($!xml-lazy && !is-basic-type($attr-desc.type)) {
-            my $attr = $attr-desc.attr;
-            my $control = obj.^attributes(:!local).grep($attr.name).head;
-            LibXML::Class::X::ReMooify.new(:$attr, :type(obj.WHAT)).throw if $attr ~~ AttrX::Mooish::Attribute;
-            my $*PACKAGE := obj;
-            my $short-name = $attr-desc.attr.name.substr(2);
-            my $lazy = 'xml-deserialize-attr';
-            my $clearer = 'xml-clear-' ~ $short-name;
-            my $predicate = 'xml-has-' ~ $short-name;
-            &trait_mod:<is>($attr, :mooish(:$lazy, :$clearer, :$predicate));
-        }
-    }
-}
+# method xml-lazify-attributes(Mu \obj) {
+#     for self.xml-attrs(obj).values -> $attr-desc {
+#         if $attr-desc.lazy // ($!xml-lazy && !is-basic-type($attr-desc.type)) {
+#             my $attr = $attr-desc.attr;
+#             my $control = obj.^attributes(:!local).grep($attr.name).head;
+#             LibXML::Class::X::ReMooify.new(:$attr, :type(obj.WHAT)).throw if $attr ~~ AttrX::Mooish::Attribute;
+#             my $*PACKAGE := obj;
+#             my $short-name = $attr-desc.attr.name.substr(2);
+#             my $lazy = 'xml-deserialize-attr';
+#             my $clearer = 'xml-clear-' ~ $short-name;
+#             my $predicate = 'xml-has-' ~ $short-name;
+#             &trait_mod:<is>($attr, :mooish(:$lazy, :$clearer, :$predicate));
+#         }
+#     }
+# }

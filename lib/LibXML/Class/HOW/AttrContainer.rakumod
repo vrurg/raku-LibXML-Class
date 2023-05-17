@@ -11,6 +11,9 @@ has $!xml-attr-lookup;
 # Impose type object namespace onto it's attributes with no explicit NS set.
 has Bool $!xml-impose-ns = False;
 
+# Should we try using laziness for XMLValueElement attributes?
+has Bool $!xml-lazy;
+
 method xml-attr-register(Mu \obj, LibXML::Class::Attr::XMLish:D $descriptor --> Nil) {
     self.xml-attrs(obj).{$descriptor.attr.name} := $descriptor;
     $!xml-attr-lookup := Nil;
@@ -34,3 +37,6 @@ method xml-has-attr(Mu \obj, Str:D $name, Bool :$local = False) {
 method xml-set-impose-ns(Mu, Bool:D() $!xml-impose-ns) {}
 
 method xml-is-imposing-ns(Mu) is raw { $!xml-impose-ns }
+
+method xml-set-lazy(Mu, Bool:D $!xml-lazy) {}
+method xml-is-lazy(Mu) { $!xml-lazy }

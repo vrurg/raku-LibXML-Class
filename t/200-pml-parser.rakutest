@@ -129,8 +129,8 @@ class XSSchema is xml-element(
          :a<http://purl.oclc.org/ooxml/drawingml/main>,
          :r<http://purl.oclc.org/ooxml/officeDocument/relationships>,
          :s<http://purl.oclc.org/ooxml/officeDocument/sharedTypes> ),
-    :sequence(XSElement, XSSimpleType, XSComplexType, XSAttributeGroup, XSSequence, XSGroup)
-) {
+    :sequence(XSElement, XSSimpleType, XSComplexType, XSAttributeGroup, XSSequence, XSGroup) )
+{
     has Str:D $.element-form-default is required is xml-attribute('elementFormDefault');
     has Str:D $.target-namespace is required is xml-attribute('targetNamespace');
     has XSImport:D @.import is xml-element;

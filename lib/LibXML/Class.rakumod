@@ -899,7 +899,7 @@ class XMLObject does LibXML::Class::Node {
                            :%user-profile )
     {
         self.xml-config-context: :$config, {
-            my LibXML::Class::Document:D $document .= parse: $source-xml, :config($_);
+            my LibXML::Class::Document:D $document = .document-class.parse: $source-xml, :config($_);
             self.from-xml:
                 $document.libxml-document.documentElement,
                 $document,
@@ -934,7 +934,7 @@ class XMLObject does LibXML::Class::Node {
                            Str :prefix(:$xml-default-ns-pfx),
                            :%user-profile )
     {
-        my LibXML::Class::Document:D $new-doc .= new: :$config, :$libxml-document;
+        my LibXML::Class::Document:D $new-doc = $config.document-class.new: :$config, :$libxml-document;
         self.from-xml:
             $libxml-document.documentElement,
             $new-doc,
@@ -985,7 +985,7 @@ class XMLObject does LibXML::Class::Node {
                          :$config )
     {
         self.xml-config-context: :$config, {
-            my LibXML::Document:D $doc .= new(:config(.libxml-config));
+            my LibXML::Document:D $doc = .libxml-config.class-from(LibXML::Document).new(:config(.libxml-config));
             $doc.documentElement = samewith($doc, :$name, :$xml-default-ns, :$xml-default-ns-pfx);
             $doc
         }

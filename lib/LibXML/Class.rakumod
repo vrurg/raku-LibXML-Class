@@ -1565,6 +1565,7 @@ BEGIN {
                                   Str :$xml-name,
                                   Bool :$implicit,
                                   Bool :$impose-ns,
+                                  Bool :$lazy,
                                   :$ns,
                                   :$sequence,
                                   Mu :$any = NOT-SET,
@@ -1583,6 +1584,7 @@ BEGIN {
             $role.HOW does LibXML::Class::HOW::ElementRole;
         }
 
+        $role.^xml-set-lazy($lazy) with $lazy;
         $role.^xml-set-ns-defaults($_) with $ns;
         $role.^xml-set-explicit(!$_) with $implicit;
         $role.^xml-set-impose-ns($_) with $impose-ns;

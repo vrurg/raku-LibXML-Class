@@ -9,3 +9,4 @@ method clone-from(Mu:D) {...}
 method from-xml(|) {...}
 method to-xml(|) {...}
 method xml-name(--> Str:D) {...}
+method xml-backing {...}

@@ -1443,7 +1443,12 @@ BEGIN {
                     }
                 }
                 default {
-                    LibXML::Class::X::Sequence::ChildType.new(:type(typeobj), :child-decl(ctype)).throw
+                    my $is-composed = True;
+                    try { $is-composed = .^is_composed; }
+                    if $is-composed {
+                        LibXML::Class::X::Sequence::ChildType.new(:type(typeobj), :child-decl(ctype)).throw
+                    }
+                    @item-desc.push: LibXML::Class::ItemDescriptor.new(:type($_<>), |%std);
                 }
             }
         }

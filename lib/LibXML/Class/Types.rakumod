@@ -7,7 +7,13 @@ class NOT-SET is Nil is export(:NOT-SET) {
     method Bool { False }
 }
 
-subset BasicType is export of Mu where { $_<> =:= Any || $_<> =:= Mu || ($_ ~~ Numeric | Stringy | Dateish | Bool) };
+subset BasicType
+    is export
+    of Mu
+    where { (my Mu $dc := $_<>) =:= Any
+                || $dc =:= Mu
+                || ($dc ~~ Numeric | Stringy | Dateish | Bool)
+                || ($dc.HOW ~~ Metamodel::EnumHOW) };
 
 # Ordered hash. I'm avoiding Hash::Ordered from the ecosystem because it is using Proxy and it'd be slower than I wish.
 class OHash does Associative does Iterable is export {

@@ -11,16 +11,16 @@ has Attribute:D $.attr handles <type name has_accessor is_built get_value packag
 # Either way, the final word would be from LibXML::Class::Config.
 has Bool $.lazy is built(:bind);
 
-has Mu:U $.value-type = self!value-type;
-has Mu:U $.nominal-type = self!nominalize-attr;
+has Mu:U $.value-type is mooish(:lazy, :predicate);
+has Mu:U $.nominal-type is mooish(:lazy, :predicate);
 
 method kind(--> Str:D) {...}
 
-method !nominalize-attr is raw {
-    nominalize-type(self!value-type)
+method build-nominal-type is raw {
+    nominalize-type($!value-type)
 }
 
-method !value-type is raw {
+method build-value-type is raw {
     my \type = $!attr.type;
     my $sigil := $.sigil;
     ($sigil eq '@' && type ~~ Positional) || ($sigil eq '%' && type ~~ Associative)

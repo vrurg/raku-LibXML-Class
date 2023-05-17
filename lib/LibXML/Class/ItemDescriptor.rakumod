@@ -1,6 +1,8 @@
 use v6.e.PREVIEW;
 unit class LibXML::Class::ItemDescriptor;
 
+use AttrX::Mooish;
+
 use LibXML::Class::Descriptor;
 use LibXML::Class::HOW::Element;
 use LibXML::Class::Utils;
@@ -11,11 +13,13 @@ also does LibXML::Class::Descriptor;
 has Mu $.type is built(:bind) is required;
 has Mu:D $.seq-how is built(:bind) is required; # The HOW object of type object-declarator
 has Str $.value-attr;
-has Mu:U $.nominal-type = nominalize-type($!type);
+has Mu:U $.nominal-type is mooish(:lazy);
 
 multi method new(Mu:U \typeobj, *%c) {
     samewith(:type(typeobj), |%c)
 }
+
+method build-nominal-type(--> Mu) is raw { nominalize-type($!type) }
 
 method xml-build-name {
     $!type.HOW ~~ LibXML::Class::HOW::Element

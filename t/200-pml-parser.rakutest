@@ -1,0 +1,225 @@
+use v6.e.PREVIEW;
+use Test::Async;
+
+use LibXML;
+use LibXML::Document;
+use LibXML::Class;
+use LibXML::Class::Config :types;
+use LibXML::Class::Document;
+
+plan 5;
+
+# !!! Please, note, this is just a test/example and it doesn't implement full schema spec and is not intended to !!!
+# Here we have a minimal subset sufficient to parse the sample.
+
+subset XSLimit of Numeric where UInt:D | Inf;
+enum XSUse (:XSUseOptional<optional>, :XSUseProhibited<prohibited>, :XSUseRequired<required>);
+enum XSProcContent (:XSPCLax<lax>, :XSPCSkip<skip>, :XSPCStrict<strict>);
+
+class XSGroup {...}
+class XSSequence {...}
+class XSSchema {...}
+
+role XSBase {
+    has XSSchema $.owner is required;
+}
+
+role XSNamed is xml-element {
+    has Str $.name is xml-attribute;
+}
+
+role XSTyped is xml-element {
+    has Str $.type is xml-attribute;
+}
+
+role XSReferencing is xml-element {
+    has Str $.ref is xml-attribute;
+}
+
+role XSSingleSequence is xml-element {
+    has XSSequence $.sequence is xml-element;
+}
+
+role XSMinMax[$min-default = 1, $max-default = 1] is xml-element {
+    my sub serialize-limit(Numeric:D $limit) { $limit == Inf ?? 'unbounded' !! .Str }
+    my sub deserialize-limit(Str:D $val) {
+        $val eq 'unbounded' ?? Inf !! $val.Int
+    }
+    has XSLimit $.max-occurs is xml-attribute( 'maxOccurs',
+                                               :serializer(&serialize-limit),
+                                               :deserializer(&deserialize-limit) ) = $max-default;
+    has UInt:D $.min-occurs is xml-attribute<minOccurs> = $min-default;
+}
+
+class XSDoc is LibXML::Class::Document {
+    has %.registry;
+
+    method register-named(XSNamed:D $node) {
+        %!registry{$node.name}.push: $node;
+    }
+}
+
+class XSConfig is LibXML::Class::Config {
+    method document-class { XSDoc }
+}
+
+class XSImport is xml-element(<import>) {
+    has Str:D $.schema-location is required is xml-attribute<schemaLocation>;
+    has Str:D $.namespace is required is xml-attribute;
+}
+
+class XSRestriction is xml-element('restriction') {
+    has Str:D $.base is required is xml-attribute;
+    has Int $.min-inclusive is xml-element('minInclusive', :value-attr<value>);
+    has Int $.max-inclusive is xml-element('maxInclusive', :value-attr<value>);
+    has Int $.max-exclusive is xml-element('maxExclusive', :value-attr<value>);
+    has Str:D @.enumeration is xml-element(:value-attr<value>);
+}
+
+class XSSimpleType is xml-element('simpleType') does XSNamed {
+    has XSRestriction $.restriction is xml-element;
+    has Str:D @.enumeration is xml-element(:value-attr<value>);
+    has Set $.union is xml-element( :serializer({ $^set.keys.join(" ") }),
+                                    :deserializer({ .getAttribute('memberTypes').Str.split(/\s+/).Set }));
+
+    submethod TWEAK {
+        self.xml-document.register-named(self);
+    }
+}
+
+class XSAttribute is xml-element<attribute> does XSNamed does XSTyped does XSReferencing {
+    has XSUse:D $.use is xml-attribute = XSUseOptional;
+    has Str $.default is xml-attribute;
+}
+
+class XSElement is xml-element<element> does XSNamed does XSTyped does XSMinMax does XSReferencing { }
+
+class XSChoice is xml-element(<choice>, :sequence(XSElement)) does XSMinMax { }
+
+class XSAttributeGroup is xml-element('attributeGroup', :sequence(XSAttribute)) does XSNamed does XSReferencing { }
+
+class XSAny is xml-element('any') does XSMinMax {
+    has XSProcContent $.process-contents is xml-attribute<processContents>;
+}
+
+class XSSequence is xml-element(<sequence>, :sequence(XSElement, XSChoice, XSGroup, XSAny)) does XSMinMax { }
+
+class XSGroup is xml-element(<group>, :sequence(XSChoice))
+    does XSNamed
+    does XSMinMax
+    does XSReferencing
+    does XSSingleSequence {}
+
+class XSComplexType is xml-element('complexType', :sequence(XSAttribute, XSAttributeGroup))
+    does XSNamed
+    does XSSingleSequence
+{
+    has XSChoice $.choice is xml-element;
+
+    submethod TWEAK {
+        self.xml-document.register-named(self);
+    }
+}
+
+class XSSchema is xml-element(
+    'schema',
+    :ns( 'http://purl.oclc.org/ooxml/presentationml/main', :xsd,
+         :xsd<http://www.w3.org/2001/XMLSchema>,
+         :p<http://purl.oclc.org/ooxml/presentationml/main>,
+         :a<http://purl.oclc.org/ooxml/drawingml/main>,
+         :r<http://purl.oclc.org/ooxml/officeDocument/relationships>,
+         :s<http://purl.oclc.org/ooxml/officeDocument/sharedTypes> ),
+    :sequence(XSElement, XSSimpleType, XSComplexType, XSAttributeGroup, XSSequence, XSGroup)
+) {
+    has Str:D $.element-form-default is required is xml-attribute('elementFormDefault');
+    has Str:D $.target-namespace is required is xml-attribute('targetNamespace');
+    has XSImport:D @.import is xml-element;
+}
+
+my $sample = $?FILE.IO.parent.add('samples/pml.xsd').IO;
+my $config = XSConfig.new: :severity(WARN), :derive(:element);
+my $schema := XSSchema.from-xml: $sample.slurp(:close), :$config;
+
+is $schema.elems, 226, "number of schema declarations imported";
+
+subtest "Schema Imports" => {
+    plan 4;
+
+    is $schema.import.elems, 3, "all 'import' records";
+    my $import = $schema.import[0];
+    isa-ok $import, XSImport, "first 'import' record type";
+    is $import.namespace, "http://purl.oclc.org/ooxml/officeDocument/relationships", "'import' namespace";
+    is $import.schema-location, "shared-relationshipReference.xsd", "'import' schema location";
+}
+
+subtest "First Declaration" => {
+    plan 4;
+    my $first = $schema.first;
+    isa-ok $first, XSSimpleType, "first schema declaration is a simple type";
+    is $first.name, "ST_TransitionSideDirectionType", "declaration name";
+    ok $first.restriction.defined, "it has a restriction";
+    cmp-deeply $first.restriction.enumeration, <l u r d>, "restriction enumeration values";
+}
+
+
+constant CT-NAME = 'CT_TLIterateIntervalTime';
+
+subtest "Custom Document Class" => {
+    plan 4;
+    # Here we basically test three things: custom config class, custom document class, and the actual laziness of
+    # the sequence since XSComplexType and XSSimpleType are only registering themselves when deserialized.
+
+    isa-ok $schema.xml-document, XSDoc, "schema document class";
+
+    nok $schema.xml-document.registry{CT-NAME}:exists, "sequence item hasn't been referenced yet";
+
+    for $schema<> -> $node {
+        if $node ~~ XSNamed && $node.name eq CT-NAME {
+            ok "found particular sequence item";
+            last;
+        }
+    }
+
+    ok $schema.xml-document.registry{CT-NAME}:exists, "the item has been referenced";
+}
+
+subtest "Deserializing into enum" => {
+    plan 4;
+
+    # The previous test has pulled in the node, so we can see it on the custom registry.
+    my $ct-node = $schema.xml-document.registry{CT-NAME}.head;
+
+    ok $ct-node.defined, "complexType node found on the custom registry";
+    is $ct-node.elems, 1, "the node has exactly one item as a sequence";
+    my $attr = $ct-node.head;
+
+    isa-ok $attr, XSAttribute, "the item is attribute declaration";
+    is $attr.use, XSUseRequired, "the attribute is 'required'";
+}
+
+sub dump-node(LibXML::Class::XMLObject:D $elem, :$level is copy = 0) {
+    my $pfx = "  " x $level;
+    diag $pfx, $elem.^name,
+        |($elem.?name
+            andthen " $_"
+            orelse ($elem.?ref andthen "ref=$_")),
+        ($elem ~~ XSAny ?? " process contents: " ~ $elem.process-contents !! "");
+    ++$level;
+
+    if $elem ~~ XSSingleSequence {
+        dump-node($_, :$level) with $elem.sequence;
+    }
+    if $elem ~~ XSComplexType {
+        dump-node($_, :$level) with $elem.choice;
+    }
+
+    if $elem ~~ LibXML::Class::XMLSequential {
+        for $elem<> -> $entry {
+            dump-node($entry, :$level);
+        }
+    }
+}
+
+# dump-node($schema);
+
+done-testing;

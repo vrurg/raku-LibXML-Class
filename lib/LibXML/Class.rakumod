@@ -317,6 +317,34 @@ class XMLObject does LibXML::Class::Node {
         }
     }
 
+    method clone-from(Mu:D $obj) {
+        my %profile;
+        for $obj.^attributes(:!local).grep({ .has_accessor || .is_built }) -> Attribute:D $attr {
+            %profile{$attr.name.substr(2)} := $attr.get_value($obj);
+        }
+        self.new: |%profile
+    }
+
+    method clone(::?CLASS:D: *%twiddles) is raw {
+        my %profile;
+        # We only need to take care of lazified xml-element or xml-attribute attributes which already received their values.
+        for self.xml-class.^xml-attrs(:!local).values -> LibXML::Class::Attr::Node $attr-desc {
+            my $attr = $attr-desc.attr;
+            if $attr ~~ AttrX::Mooish::Attribute && $attr.is-set(self) {
+                %profile{$attr.base-name} := $attr.get_value(self);
+            }
+        }
+        # Make a copy of xml-lazies to make it independent from the original object. Otherwise any modifications to the
+        # hash would be shared causing initialization of an attribute on any of the two objects resulting in no element
+        # found for initialization for another.
+        %profile<xml-lazies> := $!xml-lazies.clone;
+        my $cloned := callwith(|%profile, |%twiddles);
+        $cloned.post-clone(|%profile, |%twiddles);
+        $cloned
+    }
+
+    method post-clone(Associative :$!xml-lazies) { }
+
     method xml-config {
         $*LIBXML-CLASS-CONFIG // $!xml-document.config // LibXML::Class::Config.global
     }
@@ -856,14 +884,6 @@ class XMLObject does LibXML::Class::Node {
             }
             self.xml-create: |$dctx.final-profile
         }
-    }
-
-    method clone-from(Mu:D $obj) {
-        my %profile;
-        for $obj.^attributes(:!local).grep({ .has_accessor || .is_built }) -> Attribute:D $attr {
-            %profile{$attr.name.substr(2)} := $attr.get_value($obj);
-        }
-        self.new: |%profile
     }
 
     proto method xml-config-context(|) {*}

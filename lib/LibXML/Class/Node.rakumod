@@ -22,7 +22,7 @@ method xml-apply-ns( ::?CLASS:D:
                      :$config = $*LIBXML-CLASS-CONFIG
     --> LibXML::Element:D )
 {
-    for %.xml-namespaces.pairs -> (:key($prefix), :value($ns)) {
+    for %.xml-namespaces.sort -> (:key($prefix), :value($ns)) {
         $dest-elem.setNamespace($ns, $prefix, :!activate);
     }
 

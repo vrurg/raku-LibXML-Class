@@ -571,6 +571,8 @@ class XMLObject does LibXML::Class::Node {
     multi method xml-deserialize-attr(::?CLASS:D: Str:D $attr-name, LibXML::Class::Attr::XMLPositional:D $attr) {
         with $!xml-lazies{$attr-name} -> \initializer {
             return self.xml-lazy-deserialize-context: :desc($attr), {
+                # If all succeeded then there is no more need to hold the source element.
+                KEEP $!xml-lazies.DELETE-KEY($attr-name);
                 # Map creates a lazy Seq where map's code is invoked under another stack frame than this one thus
                 # effectively loosing the dynamic context and all $*LIBXML-CLASS variables. .eager forces it to be
                 # executed in place.
@@ -590,6 +592,8 @@ class XMLObject does LibXML::Class::Node {
         with $!xml-lazies{$attr-name} -> \initializer {
             self.xml-lazy-deserialize-context: :desc($attr), {
                 $value := self.xml-coerce-into-attr($attr, initializer);
+                # If all succeeded then there is no more need to hold the source element.
+                $!xml-lazies.DELETE-KEY($attr-name);
             }
         }
         $attr.type-check:

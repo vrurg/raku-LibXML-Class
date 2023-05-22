@@ -130,9 +130,9 @@ class XMLAssociative is XMLValueElement {
 
 our proto sub mark-attr-xml(|) {*}
 
-multi sub mark-attr-xml(Attribute:D $attr, $pos-arg?, Bool:D :as-xml-text($)!, *@pos, *%profile) {
+multi sub mark-attr-xml(Attribute:D $attr, $pos-arg = True, Bool:D :as-xml-text($)!, *@pos, *%profile) {
     # Don't throw here if there is more than one positional because the next candidate will report this case
-    unless $pos-arg ~~ Bool || @pos {
+    unless $pos-arg ~~ Bool:D || @pos {
         LibXML::Class::X::Trait::Argument.new(:why("only named arguments are accepted")).throw
     }
     samewith($attr, descriptor-class => XMLTextNode, :@pos, :%profile)

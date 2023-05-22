@@ -1,0 +1,57 @@
+use v6.e.PREVIEW;
+use Test::Async;
+
+use LibXML::Document;
+
+use LibXML::Class;
+use LibXML::Class::Config :types;
+
+plan 1;
+
+my class Prop is xml-element {
+    has UInt:D $.count is xml-attribute<size> is required;
+    has Str:D $.name is xml-attribute is required;
+    has Str $.comment is xml-attribute;
+    has %.data is xml-element;
+}
+
+my class Root is xml-element<dict> {
+    has Str:D $.scope is xml-attribute is required;
+    has Int:D $.max-something is xml-attribute is required;
+    has Int:D $.something is xml-element is required;
+    has Prop @.entry is xml-element;
+    has Str:D @.idx is xml-element;
+}
+
+my $src-xml = q:to/XML-IN/;
+<?xml version="1.0" encoding="UTF-8"?>
+<dict
+    xmlns:p="http://prop.namespace"
+    xmlns:e="http://elem.namespace"
+    scope="global" max-something="42" min-something="12" p:foo="would make it nowhere">
+  <something>12</something>
+  <entry size="2" name="article-1" comment="dictionary entry #1">
+    <data>
+      <keyword>foo</keyword>
+      <text>whatever you like</text>
+    </data>
+  </entry>
+  <e:meta comment="extras">
+    <auth name="Та Хто Зна"/>
+    <where>
+      <location address="Десь поза-обрієм"/>
+      <from>Is this gonna be used?</from>
+    </where>
+  </e:meta>
+<entry size="3" name="article-2" comment="another dictionary entry"><data><importance>required</importance><keyword>bar</keyword><text>you may not like it, but...</text></data></entry>Маємо текст тут...
+<v1>ver-1</v1><idx>s1</idx><idx>s2</idx><v1>ver-2</v1>... and more here<idx>s3</idx><idx>s4</idx><v1>ver-3</v1></dict>
+XML-IN
+
+my $deserialized = Root.from-xml: $src-xml, :config(severity => EASY);
+
+my LibXML::Document $doc .= parse: $deserialized.to-xml.Str;
+my $expected = :dict(["xmlns:e" => "http://elem.namespace", "xmlns:p" => "http://prop.namespace", :min-something("12"), "p:foo" => "would make it nowhere", :scope("global"), :max-something("42"), "\n  \n  \n  ", "e:meta" => [:comment("extras"), "\n    ", :auth([:name("Та Хто Зна")]), "\n    ", :where(["\n      ", :location([:address("Десь поза-обрієм")]), "\n      ", :from(["Is this gonna be used?"]), "\n    "]), "\n  "], "\nМаємо текст тут...\n", :v1(["ver-1"]), :v1(["ver-2"]), "... and more here", :v1(["ver-3"]), :something(["12"]), :entry([:size("2"), :name("article-1"), :comment("dictionary entry #1"), "\n    \n  ", :data([:keyword(["foo"]), :text(["\n    "])])]), :entry([:size("3"), :name("article-2"), :comment("another dictionary entry"), :data([:importance(["required"]), :keyword(["bar"]), :text(["you may not like it, but..."])])]), :idx(["s1"]), :idx(["s2"]), :idx(["s3"]), :idx(["s4"])]);
+
+cmp-deeply $doc.documentElement.ast, $expected, "unused nodes are preserved";
+
+done-testing;

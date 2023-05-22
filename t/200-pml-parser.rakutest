@@ -7,7 +7,7 @@ use LibXML::Class;
 use LibXML::Class::Config :types;
 use LibXML::Class::Document;
 
-plan 5;
+plan 7;
 
 # !!! Please, note, this is just a test/example and it doesn't implement full schema spec and is not intended to !!!
 # Here we have a minimal subset sufficient to parse the sample.
@@ -20,8 +20,8 @@ class XSGroup {...}
 class XSSequence {...}
 class XSSchema {...}
 
-role XSBase {
-    has XSSchema $.owner is required;
+role XSBase is xml-element {
+    has Str $.text is xml-text(:trim);
 }
 
 role XSNamed is xml-element {
@@ -63,12 +63,12 @@ class XSConfig is LibXML::Class::Config {
     method document-class { XSDoc }
 }
 
-class XSImport is xml-element(<import>) {
+class XSImport is xml-element(<import>) does XSBase {
     has Str:D $.schema-location is required is xml-attribute<schemaLocation>;
     has Str:D $.namespace is required is xml-attribute;
 }
 
-class XSRestriction is xml-element('restriction') {
+class XSRestriction is xml-element('restriction') does XSBase {
     has Str:D $.base is required is xml-attribute;
     has Int $.min-inclusive is xml-element('minInclusive', :value-attr<value>);
     has Int $.max-inclusive is xml-element('maxInclusive', :value-attr<value>);
@@ -76,7 +76,7 @@ class XSRestriction is xml-element('restriction') {
     has Str:D @.enumeration is xml-element(:value-attr<value>);
 }
 
-class XSSimpleType is xml-element('simpleType') does XSNamed {
+class XSSimpleType is xml-element('simpleType') does XSNamed does XSBase {
     has XSRestriction $.restriction is xml-element;
     has Str:D @.enumeration is xml-element(:value-attr<value>);
     has Set $.union is xml-element( :serializer({ $^set.keys.join(" ") }),
@@ -87,32 +87,36 @@ class XSSimpleType is xml-element('simpleType') does XSNamed {
     }
 }
 
-class XSAttribute is xml-element<attribute> does XSNamed does XSTyped does XSReferencing {
+class XSAttribute is xml-element<attribute> does XSNamed does XSTyped does XSReferencing does XSBase {
     has XSUse:D $.use is xml-attribute = XSUseOptional;
     has Str $.default is xml-attribute;
 }
 
-class XSElement is xml-element<element> does XSNamed does XSTyped does XSMinMax does XSReferencing { }
+class XSElement is xml-element<element> does XSNamed does XSTyped does XSMinMax does XSReferencing does XSBase {}
 
-class XSChoice is xml-element(<choice>, :sequence(XSElement)) does XSMinMax { }
+class XSChoice is xml-element(<choice>, :sequence(XSElement)) does XSMinMax does XSBase {}
 
-class XSAttributeGroup is xml-element('attributeGroup', :sequence(XSAttribute)) does XSNamed does XSReferencing { }
+class XSAttributeGroup
+    is xml-element('attributeGroup', :sequence(XSAttribute))
+    does XSNamed does XSReferencing does XSBase {}
 
-class XSAny is xml-element('any') does XSMinMax {
+class XSAny is xml-element('any') does XSMinMax does XSBase {
     has XSProcContent $.process-contents is xml-attribute<processContents>;
 }
 
-class XSSequence is xml-element(<sequence>, :sequence(XSElement, XSChoice, XSGroup, XSAny)) does XSMinMax { }
+class XSSequence is xml-element(<sequence>, :sequence(XSElement, XSChoice, XSGroup, XSAny)) does XSMinMax does XSBase {}
 
 class XSGroup is xml-element(<group>, :sequence(XSChoice))
     does XSNamed
     does XSMinMax
     does XSReferencing
-    does XSSingleSequence {}
+    does XSSingleSequence
+    does XSBase {}
 
 class XSComplexType is xml-element('complexType', :sequence(XSAttribute, XSAttributeGroup))
     does XSNamed
     does XSSingleSequence
+    does XSBase
 {
     has XSChoice $.choice is xml-element;
 
@@ -121,15 +125,16 @@ class XSComplexType is xml-element('complexType', :sequence(XSAttribute, XSAttri
     }
 }
 
-class XSSchema is xml-element(
-    'schema',
-    :ns( 'http://purl.oclc.org/ooxml/presentationml/main', :xsd,
-         :xsd<http://www.w3.org/2001/XMLSchema>,
-         :p<http://purl.oclc.org/ooxml/presentationml/main>,
-         :a<http://purl.oclc.org/ooxml/drawingml/main>,
-         :r<http://purl.oclc.org/ooxml/officeDocument/relationships>,
-         :s<http://purl.oclc.org/ooxml/officeDocument/sharedTypes> ),
-    :sequence(XSElement, XSSimpleType, XSComplexType, XSAttributeGroup, XSSequence, XSGroup) )
+class XSSchema
+    is xml-element( 'schema',
+                    :ns( 'http://purl.oclc.org/ooxml/presentationml/main', :xsd,
+                        :xsd<http://www.w3.org/2001/XMLSchema>,
+                        :p<http://purl.oclc.org/ooxml/presentationml/main>,
+                        :a<http://purl.oclc.org/ooxml/drawingml/main>,
+                        :r<http://purl.oclc.org/ooxml/officeDocument/relationships>,
+                        :s<http://purl.oclc.org/ooxml/officeDocument/sharedTypes> ),
+                    :sequence(XSElement, XSSimpleType, XSComplexType, XSAttributeGroup, XSSequence, XSGroup) )
+    does XSBase
 {
     has Str:D $.element-form-default is required is xml-attribute('elementFormDefault');
     has Str:D $.target-namespace is required is xml-attribute('targetNamespace');
@@ -154,13 +159,42 @@ subtest "Schema Imports" => {
 
 subtest "First Declaration" => {
     plan 4;
-    my $first = $schema.first;
+    my $first = $schema.head;
     isa-ok $first, XSSimpleType, "first schema declaration is a simple type";
     is $first.name, "ST_TransitionSideDirectionType", "declaration name";
     ok $first.restriction.defined, "it has a restriction";
     cmp-deeply $first.restriction.enumeration, <l u r d>, "restriction enumeration values";
 }
 
+subtest "Cloning" => {
+    plan 10;
+    # Testing .clone with real sample should be even more reliable.
+
+    my $stype = $schema[1]; # $schema[0] was used in the previous test.
+
+    nok $stype.xml-has-restriction, "lazy attribute is not initialized yet";
+    my $clone1 = $stype.clone;
+    nok $clone1.xml-has-restriction, "clone's lazy attribute is uninitialized too";
+    ok $stype.restriction.defined, "attribute now has a value";
+    ok $stype.xml-has-restriction, "attribute initialization flag is raised";
+
+    my $clone2 = $stype.clone;
+    ok $clone2.xml-has-restriction, "second clone also has the attribute as initialized";
+    cmp-ok $clone2.restriction, '===', $stype.restriction, "the clone has the same value in the attribute";
+
+    nok $clone1.xml-has-restriction, "the first clone's attribute is still unitialized";
+    ok $clone1.restriction.defined, "the first clone attribute now has a value";
+    ok $clone1.xml-has-restriction, "the first clone attribute is marked as initialized";
+    nok $clone1.restriction === $stype.restriction, "the first clone attribute value obtained independently";
+}
+
+todo "NYI";
+subtest "Sequence Element Cloning" => {
+    my $ct = $schema.first({ $_ ~~ XSComplexType && .name eq 'CT_SlideTransition' });
+
+    diag $ct.elems;
+    flunk "do this test!";
+}
 
 constant CT-NAME = 'CT_TLIterateIntervalTime';
 
@@ -203,7 +237,8 @@ sub dump-node(LibXML::Class::XMLObject:D $elem, :$level is copy = 0) {
         |($elem.?name
             andthen " $_"
             orelse ($elem.?ref andthen "ref=$_")),
-        ($elem ~~ XSAny ?? " process contents: " ~ $elem.process-contents !! "");
+        ($elem ~~ XSAny ?? " process contents: " ~ $elem.process-contents !! ""),
+        " ", $elem.xml-backing.nodePath;
     ++$level;
 
     if $elem ~~ XSSingleSequence {
@@ -220,6 +255,6 @@ sub dump-node(LibXML::Class::XMLObject:D $elem, :$level is copy = 0) {
     }
 }
 
-# dump-node($schema);
+#dump-node($schema);
 
 done-testing;

@@ -734,9 +734,9 @@ class XMLObject does LibXML::Class::Node {
     }
 
     multi method xml-serialize-attr(LibXML::Element:D $elem, LibXML::Class::Attr::XMLPositional:D $desc) {
-        my @attr-values = $desc.get_value(self);
+        my \attr-values := $desc.get_value(self);
 
-        return unless @attr-values;
+        return unless attr-values;
 
         # Positional containerization differs from other elements since by default their elements are direct
         # children of the parent.
@@ -747,7 +747,7 @@ class XMLObject does LibXML::Class::Node {
                 ?? self.xml-create-child-element($elem, $desc, :name($desc.container-name), :$namespace, :$prefix)
                 !! $elem;
 
-        for @attr-values -> $avalue {
+        for attr-values<> -> $avalue {
             my $velem =
                 self.xml-create-child-element($celem, $desc, :name($desc.value-name($avalue)), :$namespace, :$prefix);
             self.xml-ser-attr-val2elem: $velem, $desc, $avalue;

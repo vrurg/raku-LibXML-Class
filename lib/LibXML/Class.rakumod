@@ -40,7 +40,7 @@ my class DeserializingCtx does LibXML::Class::NS {
     has LibXML::Element:D $.elem is required;
     has LibXML::Class::Document:D $.document is required;
     has LibXML::Class::Config:D $.config = $!document.config;
-    has LibXML::Node @.child-elems = $!elem.elements;
+    has LibXML::Node @.child-elems = $!elem.childNodes;
     has Map $!child-idx = @!child-elems.map(*.unique-key).antipairs.Map;
     has LibXML::Node @.attributes = $!elem.properties;
     has Map $!attr-idx = @!attributes.map(*.unique-key).antipairs.Map;
@@ -52,6 +52,7 @@ my class DeserializingCtx does LibXML::Class::NS {
     # Map namespace/node name into descriptor objects
     has %!xml-props;
     has %!xml-tags;
+    # Target attribute for #text
     has $.xml-text;
 
     submethod TWEAK {
@@ -192,7 +193,7 @@ my class DeserializingCtx does LibXML::Class::NS {
             (%!profile<xml-lazies>{$attr-name} //= []).push: $initializer;
         }
         elsif $lazy-attr ~~ LibXML::Class::Attr::XMLTextNode {
-            %!profile<xml-lazies>{$attr-name} = $initializer;
+            (%!profile<xml-lazies>{$attr-name} //= "") ~= $initializer;
         }
         else {
             if %!profile<xml-lazies>{$attr-name}:exists {
@@ -659,7 +660,6 @@ class XMLObject does LibXML::Class::Node {
                     # Turn a basic class into an XMLRepresentation with implicit flag raised
                     $cvalue = $.xml-config.xmlize($value, XMLRepresentation);
                 }
-                # TODO Attribute xml-namespace is not used; set element namespace if attribute overrides it.
                 $cvalue.to-xml($velem);
             }
             else {
@@ -1085,67 +1085,81 @@ our role XMLRepresentation does LibXML::Class::XML is XMLObject {
             }
         }
 
-        for $dctx.unclaimed-children -> LibXML::Element:D $elem {
-            with $dctx.desc-for-elem($elem) -> LibXML::Class::Attr::XMLish:D $attr {
-                my $value-elems := self.xml-decontainerize($elem, $attr, :trim);
+        # When eager and there is text content for the element then this is where we collect content of all text nodes
+        # before coercing it into xml-text attribute target type.
+        my Str $element-text-content;
 
-                # Validate xml:any by making sure the number of XML elements matches attribute declaration.
-                if $attr.is-any {
-                    if $attr.sigil ne '@' {
-                        $dctx.config.alarm:
-                            LibXML::Class::X::Deserialize::BadNode.new(
-                                :expected("single element for xml:any attribute " ~ $attr.name),
-                                :got($value-elems.elems))
-                            if $value-elems.elems > 1;
-                    }
-                    else {
-                        for $value-elems.List -> $velem {
-                            if $velem.elements.elems > 1 {
-                                $dctx.config.alarm:
+        for $dctx.unclaimed-children -> LibXML::Node:D $node {
+            given $node {
+                when LibXML::Element {
+                    with $dctx.desc-for-elem($node) -> LibXML::Class::Attr::XMLish:D $attr {
+                        my $value-elems := self.xml-decontainerize($node, $attr, :trim);
+
+                        # Validate xml:any by making sure the number of XML elements matches attribute declaration.
+                        if $attr.is-any {
+                            if $attr.sigil ne '@' {
+                                $config.alarm:
                                     LibXML::Class::X::Deserialize::BadNode.new(
-                                        :type(self.WHAT),
-                                        :expected("single child under xml:any element '" ~ $velem.name ~ "'"),
-                                        :got($velem.elements.elems))
+                                        :expected("single element for xml:any attribute " ~ $attr.name),
+                                        :got($value-elems.elems))
+                                    if $value-elems.elems > 1;
+                            }
+                            else {
+                                for $value-elems.List -> $velem {
+                                    if $velem.elements.elems > 1 {
+                                        $config.alarm:
+                                            LibXML::Class::X::Deserialize::BadNode.new(
+                                                :type(self.WHAT),
+                                                :expected("single child under xml:any element '" ~ $velem.name ~ "'"),
+                                                :got($velem.elements.elems))
+                                    }
+                                }
                             }
                         }
-                    }
-                }
 
-                if !$force-eager && ($attr.lazy // $lazy-class) {
-                    # Lazy xml-element attribute
-                    for $value-elems {
-                        $dctx.add-lazy($attr, $_);
-                    }
-                }
-                else {
-                    for $value-elems {
-                        if $_ ~~ LibXML::Element {
-                            $dctx.to-profile: $attr, self.xml-coerce-into-attr($attr, $_), :node($elem);
+                        if !$force-eager && ($attr.lazy // $lazy-class) {
+                            # Lazy xml-element attribute
+                            for $value-elems {
+                                $dctx.add-lazy($attr, $_);
+                            }
                         }
                         else {
-                            $dctx.config.alert:
-                                LibXML::Class::X::Deserialize::BadNode.new(
-                                    :type(self.WHAT)
-                                    :expected('an element'),
-                                    :got('a ' ~ .^name ~ ' node'));
+                            for $value-elems {
+                                if $_ ~~ LibXML::Element {
+                                    $dctx.to-profile: $attr, self.xml-coerce-into-attr($attr, $_), :node($node);
+                                }
+                                else {
+                                    $dctx.config.alert:
+                                        LibXML::Class::X::Deserialize::BadNode.new(
+                                            :type(self.WHAT)
+                                            :expected('an element'),
+                                            :got('a ' ~ .^name ~ ' node'));
+                                }
+                            }
                         }
+
+                        $dctx.claim-child($node);
                     }
                 }
+                when LibXML::Text {
+                    with $dctx.xml-text {
+                        my $text-content = $node.data;
+                        $text-content .= trim if .trim;
+                        if !$force-eager && (.lazy // $lazy-class) {
+                            $dctx.add-lazy($_, $text-content)
+                        }
+                        else {
+                            ($element-text-content //= "") ~= $text-content;
+                        }
 
-                $dctx.claim-child($elem);
+                        $dctx.claim-child($node);
+                    }
+                }
             }
         }
 
-        with $dctx.xml-text {
-            my $text-content = $dctx.elem.textContent.trim;
-            $text-content .= trim if .trim;
-
-            if !$force-eager && (.lazy // $lazy-class) {
-                $dctx.add-lazy($_, $text-content)
-            }
-            else {
-                $dctx.to-profile: $_, self.xml-coerce-into-attr($_, $text-content);
-            }
+        with $element-text-content {
+            $dctx.to-profile: $dctx.xml-text, self.xml-coerce-into-attr($dctx.xml-text, $_);
         }
     }
 }
@@ -1193,7 +1207,7 @@ class XMLSequence does Positional does Iterable {
         my $xml-config = $dctx.config;
         my $of-type := self.of;
 
-        for $dctx.unclaimed-children -> LibXML::Element:D $elem {
+        for $dctx.unclaimed-children.grep(LibXML::Element) -> LibXML::Element:D $elem {
             if $dctx.desc-for-elem($elem) ~~ LibXML::Class::ItemDescriptor:D
                 or (self.xml-seq-either-any
                     # If xml:any then tag must be in the namespace map and match an allowed item type

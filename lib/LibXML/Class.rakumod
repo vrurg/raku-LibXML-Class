@@ -551,7 +551,12 @@ class XMLObject does LibXML::Class::Node {
         my $*LIBXML-CLASS-CTX = $!xml-dctx;
         my $*LIBXML-CLASS-CONFIG = $!xml-dctx.document.config;
         # Where there is no more lazies to deserialize we don't need the context object anymore.
-        LEAVE { $!xml-dctx = Nil unless self.xml-has-lazies }
+        LEAVE {
+            unless self.xml-has-lazies {
+                $!xml-dctx = Nil;
+                $!xml-backing = Nil;
+            }
+        }
         &code()
     }
 

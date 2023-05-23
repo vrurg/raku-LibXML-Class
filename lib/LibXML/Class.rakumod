@@ -1339,7 +1339,7 @@ class XMLSequence does Positional does Iterable {
     }
 
     method AT-POS(::?CLASS:D: $idx --> Mu) is raw {
-        return @!xml-items[$idx] if @!xml-items[$idx]:exists;
+        return @!xml-items[$idx] if @!xml-items.EXISTS-POS($idx);
         fail X::OutOfRange(:what<Index>, :got($idx), :range(0 .. self.end)) if $idx > self.end;
 
         # Item is not ready, deserialize corresponding element
@@ -1368,14 +1368,14 @@ class XMLSequence does Positional does Iterable {
                     message => "No type for sequential element <" ~ $elem.name ~ "> – how is it ever possible?").throw
             }
 
-            @!xml-seq-elems[$idx]:delete;
+            @!xml-seq-elems.DELETE-POS($idx);
 
             @!xml-items[$idx] := self.xml-deserialize-item($desc, $elem, :index($idx))
         }
     }
 
     method EXISTS-POS(::?CLASS:D: Int:D $pos) {
-        $pos < @!xml-seq-elems || @!xml-items.EXISTS-POS($pos)
+        @!xml-seq-elems.EXISTS-POS($pos) || @!xml-items.EXISTS-POS($pos)
     }
 
     method elems {

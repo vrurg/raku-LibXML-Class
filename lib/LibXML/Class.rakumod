@@ -1378,6 +1378,14 @@ class XMLSequence does Positional does Iterable {
         @!xml-seq-elems.EXISTS-POS($pos) || @!xml-items.EXISTS-POS($pos)
     }
 
+    proto method HAS-POS(::?CLASS:D: Any:D) {*}
+    multi method HAS-POS(::?CLASS:D: Int:D $pos, Bool:D :$has = True) {
+        ! (@!xml-items.EXISTS-POS($pos) ^^ $has)
+    }
+    multi method HAS-POS(::?CLASS:D: Iterable:D \positions, Bool:D :$has = True) {
+        gather for positions<> { take ! (@!xml-items.EXISTS-POS($_) ^^ $has) }
+    }
+
     method elems {
         @!xml-seq-elems.elems max @!xml-items.elems
     }
@@ -1666,6 +1674,10 @@ BEGIN {
 
     sub xml-I-cant(--> Nil) is export { LibXML::Class::CX::Cannot.new.throw }
 }
+
+    multi sub postcircumfix:<[ ]>(XMLSequence:D \XMLSEQ, Any:D $pos, Bool:D :$has!) is raw is export {
+        XMLSEQ.HAS-POS($pos, :$has)
+    }
 
 our sub META6 {
     $?DISTRIBUTION.meta

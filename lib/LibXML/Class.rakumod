@@ -1177,7 +1177,7 @@ class XMLSequence does Positional does Iterable {
 
     multi method new(*@items, *%profile) {
         given self.bless(|%profile) {
-            .append: @items;
+            .append: @items if @items;
             $_
         }
     }

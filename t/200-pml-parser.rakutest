@@ -7,7 +7,7 @@ use LibXML::Class;
 use LibXML::Class::Config :types;
 use LibXML::Class::Document;
 
-plan 7;
+plan 6;
 
 # !!! Please, note, this is just a test/example and it doesn't implement full schema spec and is not intended to !!!
 # Here we have a minimal subset sufficient to parse the sample.
@@ -186,14 +186,6 @@ subtest "Cloning" => {
     ok $clone1.restriction.defined, "the first clone attribute now has a value";
     ok $clone1.xml-has-restriction, "the first clone attribute is marked as initialized";
     nok $clone1.restriction === $stype.restriction, "the first clone attribute value obtained independently";
-}
-
-todo "NYI";
-subtest "Sequence Element Cloning" => {
-    my $ct = $schema.first({ $_ ~~ XSComplexType && .name eq 'CT_SlideTransition' });
-
-    diag $ct.elems;
-    flunk "do this test!";
 }
 
 constant CT-NAME = 'CT_TLIterateIntervalTime';

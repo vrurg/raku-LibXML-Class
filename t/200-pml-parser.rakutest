@@ -7,7 +7,7 @@ use LibXML::Class;
 use LibXML::Class::Config :types;
 use LibXML::Class::Document;
 
-plan 6;
+plan 7;
 
 # !!! Please, note, this is just a test/example and it doesn't implement full schema spec and is not intended to !!!
 # Here we have a minimal subset sufficient to parse the sample.
@@ -144,6 +144,7 @@ class XSSchema
 my $sample = $?FILE.IO.parent.add('samples/pml.xsd').IO;
 my $config = XSConfig.new: :severity(WARN), :derive(:element);
 my $schema := XSSchema.from-xml: $sample.slurp(:close), :$config;
+my LibXML::Element:D $xml-root = $schema.xml-document.libxml-document.documentElement;
 
 is $schema.elems, 226, "number of schema declarations imported";
 
@@ -186,6 +187,125 @@ subtest "Cloning" => {
     ok $clone1.restriction.defined, "the first clone attribute now has a value";
     ok $clone1.xml-has-restriction, "the first clone attribute is marked as initialized";
     nok $clone1.restriction === $stype.restriction, "the first clone attribute value obtained independently";
+}
+
+subtest "Deserializations registry and search" => {
+
+    plan 13;
+
+    my $first = $schema.head;
+    my $doc = $schema.xml-document;
+
+    # Rely on the deserializations done in the previous subtest
+    cmp-deeply
+        $doc.deserializations($xml-root[7][1]).head,
+        $first.restriction,
+        "restriction enumeration deserialization is searchable on the document";
+
+    nok $doc.has-deserialization($xml-root[*-4]), "registry entry is missing for undeserialized yet XML node";
+
+    my $ds = $doc.find-deserializations($xml-root[*-4][1][5]);
+
+    nok $doc.has-deserialization($xml-root[*-4]), "registry entry is not there yet immediately after the search";
+    is $ds.elems, 1, "search over a undeserialized sequence item came up with a result";
+
+    my $e = $ds.head;
+
+    # This test can only sit here because $ds is a lazy sequence. Therefore $e is only deserialized when picked up.
+    ok $doc.has-deserialization($xml-root[*-4]), "registry entry exists after the element is deserialized";
+
+    subtest "found item properties", {
+        plan 7;
+        isa-ok $e, XSElement, "class";
+        is $e.name, "outlineViewPr", ".name";
+        is $e.type, "CT_OutlineViewProperties", ".type";
+        is $e.min-occurs, 0, ".min-occurs";
+        is $e.max-occurs, 1, ".max-occurs";
+        nok $e.ref.defined, "has no .ref";
+        nok $e.text.defined, "has no .text";
+    }
+
+    subtest "cloning" => {
+        plan 4;
+
+        my $ce = $e.clone;
+        cmp-deeply $ce, $e, "element cloned successfully";
+        ok $ce.xml-id !== $e.xml-id, "the clone and the original has different xml-id";
+
+        $ds = $doc.find-deserializations($xml-root[*-4][1][5]).cache;
+        is $ds.elems, 2, "search over the same sequence item comes up with two results now";
+        cmp-ok $ds.map(*.xml-id).Set, '==', ($e.xml-id, $ce.xml-id).Set, "search finds both the original and cloned";
+    }
+
+    # Similar cases are tested in 150-find.rakutest, but here we have namespaces and better ensure they do not influence
+    # the search.
+    subtest "search by selected element" => {
+        plan 3;
+
+        $ds = $schema.xml-findnodes(q«//xsd:enumeration[@value = 'series']»).cache;
+        is $ds.elems, 2, "all elements with the same attribute value are found";
+        # But we are only intersted in the first one.
+        cmp-deeply $ds.List, ("series" xx 2).List, "search by a value element finds the right values";
+        is $schema.xml-findnodes(q«//xsd:enumeration[@value = 'series']»).head, "series",
+            "repeating search over the same value element";
+    }
+
+    subtest "search by XML attribute" => {
+        plan 2;
+
+        my $attr-value = "CT_SlideSorterViewProperties";
+        $ds = $schema.xml-findnodes(qq«//*[@name = "$attr-value"]/@name»).cache;
+
+        is $ds.elems, 1, "search by XML attribute comes up with single value";
+        is $ds.head, $attr-value, "found the expected value";
+    }
+
+    subtest "search by a text node" => {
+        plan 3;
+
+        # Pick a text node and make sure we can search over it too.
+        my $text-node = $xml-root.findnodes(q«//xsd:enumeration[@value = 'series']»).head.parent[2];
+        isa-ok $text-node, LibXML::Text, "control: it is a text node";
+        $ds = $doc.find-deserializations($text-node).cache;
+        is $ds.elems, 1, "a text node maps into single value";
+        # Our xml-text attribute is using :trim resulting in an empty string for any series of new lines.
+        is $ds.head, "", "found text node value";
+    }
+
+    subtest "search by a sequence item attribute" => {
+        plan 2;
+
+        my $attr-value = "subTnLst";
+        my $seq-child-attr = $xml-root.findnodes(qq«//*[@name = "$attr-value"]/@name»).head;
+        $ds = $doc.find-deserializations($seq-child-attr).cache;
+        is $ds.elems, 1, "search comes up with the only result";
+        is $ds.head, $attr-value, "found expected attribute value";
+    }
+
+    subtest "search by s sequence item element" => {
+        plan 5;
+
+        my $seq-child-elem = $xml-root.findnodes(q«//*[@name = "xfrmType"]»).head;
+        $ds = $doc.find-deserializations($seq-child-elem).cache;
+        is $ds.elems, 1, "search came up with exactly one result";
+        my $item = $ds.head;
+
+        isa-ok $item, XSAttribute, "item class";
+        is $item.name, "xfrmType", "item name";
+        is $item.type, "ST_TLBehaviorTransformType", "item type";
+        is $item.use, "optional", "item use";
+    }
+
+    subtest "search by multiple elements" => {
+        plan 4;
+
+        my $items = $xml-root.findnodes(q«//*[@type = "ST_Direction"]»);
+        $ds = $doc.find-deserializations($items).cache;
+        is $ds.elems, $items.elems, "all matching elements found";
+        cmp-ok $ds.all, '~~', XSAttribute, "all elements class";
+        cmp-ok $ds.map({ .type }).all, '~~', 'ST_Direction', "all items has the same .type";
+        cmp-deeply $ds.map(*.name).List, <dir orient orient orient>, "item names";
+    }
 }
 
 constant CT-NAME = 'CT_TLIterateIntervalTime';

@@ -226,11 +226,6 @@ multi sub mark-attr-xml( Attribute:D $attr,
     pkg.^xml-attr-register: my $attr-desc = $descriptor-class.new(|%profile, :declarant(pkg), :$attr);
 
     if $attr-desc.lazy // (pkg.^xml-is-lazy && !is-basic-type($attr-desc.type)) {
-        LibXML::Class::X::ReMooify.new(:$attr, :type(pkg)).throw if $attr ~~ AttrX::Mooish::Attribute;
-        my $xml-name = $attr-desc.xml-name;
-        my $lazy = 'xml-deserialize-attr';
-        my $clearer = 'xml-clear-' ~ $xml-name;
-        my $predicate = 'xml-has-' ~ $xml-name;
-        &trait_mod:<is>($attr, :mooish(:$lazy, :$clearer, :$predicate));
+        $attr-desc.lazify(pkg);
     }
 }

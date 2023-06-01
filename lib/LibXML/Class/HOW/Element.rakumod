@@ -86,6 +86,8 @@ method compose_attributes(Mu \obj, |) {
             }
         }
     }
+
+    self.xml-lazify-attributes(obj);
 }
 
 method compose_meta_methods(Mu \obj) {
@@ -106,18 +108,12 @@ method xml-set-ns-defaults(Mu, $ns) {
     self.xml-set-ns-from-defs($ns)
 }
 
-# method xml-lazify-attributes(Mu \obj) {
-#     for self.xml-attrs(obj).values -> $attr-desc {
-#         if $attr-desc.lazy // ($!xml-lazy && !is-basic-type($attr-desc.type)) {
-#             my $attr = $attr-desc.attr;
-#             my $control = obj.^attributes(:!local).grep($attr.name).head;
-#             LibXML::Class::X::ReMooify.new(:$attr, :type(obj.WHAT)).throw if $attr ~~ AttrX::Mooish::Attribute;
-#             my $*PACKAGE := obj;
-#             my $short-name = $attr-desc.attr.name.substr(2);
-#             my $lazy = 'xml-deserialize-attr';
-#             my $clearer = 'xml-clear-' ~ $short-name;
-#             my $predicate = 'xml-has-' ~ $short-name;
-#             &trait_mod:<is>($attr, :mooish(:$lazy, :$clearer, :$predicate));
-#         }
-#     }
-# }
+method xml-lazify-attributes(Mu \obj) {
+    for self.xml-attrs(obj).values -> $attr-desc {
+        if $attr-desc.lazy // (self.xml-is-lazy(obj) && !is-basic-type($attr-desc.type)) {
+            next if $attr-desc.attr ~~ AttrX::Mooish::Attribute;
+            my $*PACKAGE := obj;
+            $attr-desc.lazify(obj);
+        }
+    }
+}

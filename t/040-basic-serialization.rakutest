@@ -15,8 +15,29 @@ for True, False -> $eager {
     subtest ($eager ?? "Eager" !! "Lazy"), {
         plan 8;
 
+        my sub is-two-way( \xml-object,
+                           $expected-xml-ast,
+                           Str:D $message = "serialize, then deserialize",
+                           Bool :$dump,
+                           Bool :$format = False,
+                           :%config,
+                           :%profile ) is test-assertion
+        {
+            subtest $message, :hidden, {
+                plan 2;
+
+                my $serialized = xml-object.to-xml(:%config);
+                cmp-deeply $serialized.ast, $expected-xml-ast, "serialized OK";
+
+                diag $serialized.Str(:$format) if $dump;
+
+                my $deserialized = xml-object.WHAT.from-xml: $serialized.Str, :config(:$eager, |%config), |%profile;
+                cmp-deeply $deserialized, xml-object, "deserialized version is the same";
+            }
+        }
+
         subtest "Most basic" => {
-            plan 2;
+            plan 1;
 
             my class Prop is xml-element {
                 has UInt:D $.count is xml-attribute<size> is required;
@@ -57,16 +78,11 @@ for True, False -> $eager {
                     );
 
             my $expected = "#xml" => [:dict([:scope("global"), :max-something("42"), :something(["12"]), :entry([:size("2"), :name("article-1"), :comment("dictionary entry #1"), :data([:keyword(["foo"]), :text(["whatever you like"])])]), :entry([:size("3"), :name("article-2"), :comment("another dictionary entry"), :data([:importance(["required"]), :keyword(["bar"]), :text(["you may not like it, but..."])])]), :idx(["s1"]), :idx(["s2"]), :idx(["s3"]), :idx(["s4"])])];
-            my $serialized = $root.to-xml;
-            cmp-deeply $serialized.ast, $expected, "serialized OK";
-
-            my $deserialized = Root.from-xml: $serialized.Str, :config(:$eager);
-
-            cmp-deeply $deserialized, $root, "deserialized version is the same";
+            is-two-way $root, $expected;
         }
 
         subtest "Namespaces" => {
-            plan 3;
+            plan 2;
 
             my class Root is xml-element('root', :ns(TEST-NS1, :r1(TEST-NS2))) {
                 has Str:D $.attr1 is xml-attribute(:ns(TEST-NS2)) is required;
@@ -77,12 +93,7 @@ for True, False -> $eager {
             my $root = Root.new: :attr1('a string'), :attr2(12.42), :!attr3, :attr4(42);
 
             my $expected = "#xml" => [:root(["xmlns:r1" => "http://test2.namespace", :xmlns("http://test1.namespace"), "r1:attr1" => "a string", "r1:attr2" => "12.42", "r3:attr3" => ["xmlns:r3" => "http://test3.namespace", "false"]])];
-            my $serialized = $root.to-xml;
-            cmp-deeply $serialized.ast, $expected, "serialized OK";
-
-            my $deserialized = Root.from-xml: $serialized.Str, :config(:$eager);
-
-            cmp-deeply $deserialized, $root, "deserialized version is the same";
+            is-two-way $root, $expected;
 
             my class Foo is xml-element {
                 has Str $.foo is xml-attribute(:ns(TEST-NS1));
@@ -95,7 +106,7 @@ for True, False -> $eager {
         }
 
         subtest "Containers" => {
-            plan 2;
+            plan 1;
 
             my class Record is xml-element<record> {
                 has Int $.idx is xml-attribute;
@@ -151,15 +162,11 @@ for True, False -> $eager {
             }
 
             my $expected = "#xml" => [:root([:rec1([:idx("1"), :val(["record#1"])]), :r2([:idx("2"), :val(["record#2"])]), :rec3([:record([:idx("3"), :val(["record#3"])])]), :fourth-record([:rec4([:idx("4"), :val(["record#4"])])]), :size([:count(["4"])]), :info([:description(["Fictional structure"])]), :list1([:record([:idx("1001"), :val(["record#1001"])]), :record([:idx("1002"), :val(["record#1002"])]), :record([:idx("1003"), :val(["record#1003"])]), :record([:idx("1004"), :val(["record#1004"])])]), :Items([:entry([:idx("2001"), :val(["record#2001"])]), :entry([:idx("2002"), :val(["record#2002"])]), :entry([:idx("2003"), :val(["record#2003"])])]), :LIST2([:item([:idx("3001"), :val(["record#3001"])]), :item([:idx("3002"), :val(["record#3002"])]), :item([:idx("3003"), :val(["record#3003"])])])])];
-            my $serialized = $root.to-xml;
-            cmp-deeply $serialized.ast, $expected, "serialized OK";
-
-            my $deserialized = Root.from-xml: $serialized.Str, :config(:$eager);
-            cmp-deeply $deserialized, $root, "deserialized version is the same";
+            is-two-way $root, $expected, :dump;
         }
 
         subtest "Containers and Namespaces" => {
-            plan 2;
+            plan 1;
 
             my class Root is xml-element('root', :ns('http://default.namespace', :pfx<http://test.namespace>)) {
                 has Str:D $.descr is xml-element('description', :container<INFO>, :ns(:pfx)) is required;
@@ -170,15 +177,12 @@ for True, False -> $eager {
             my $root = Root.new: descr => "this must be namespaced", count => 42;
 
             my $expected = "#xml" => [:root([:xmlns("http://default.namespace"), "xmlns:pfx" => "http://test.namespace", "pfx:INFO" => ["pfx:description" => ["this must be namespaced"]], :weight([:xmlns("http://cont.namespace"), :count(["42"])]), "pfx:banal" => ["xmlns:pfx" => "http://math.namespace", "pfx:constant" => ["3.141592653589793e+00"]]])];
-            my $serialized = $root.to-xml;
-            cmp-deeply $serialized.ast, $expected, "serialized OK";
 
-            my $deserialized = Root.from-xml: $serialized.Str, :config(:$eager);
-            cmp-deeply $deserialized, $root, "deserialized version is the same";
+            is-two-way $root, $expected;
         }
 
         subtest "Namespaced subrecords" => {
-            plan 4;
+            plan 2;
 
             my class Meta is xml-element {
                 has Str $.comment is xml-element;
@@ -199,22 +203,14 @@ for True, False -> $eager {
             my $root = Root.new: rec => Record.new(:idx(42), :val('The Answer'), :$meta);
 
             my $expected = "#xml" => [:root([:xmlns("http://root.namespace"), "xmlns:pfx" => "http://prefix.namespace", "pfx:rec" => ["xmlns:xstr" => "http://strings.namespace", "pfx:idx" => ["42"], "xstr:val" => ["The Answer"], :meta([:comment(["some extra info"]), :created([:xmlns(""), "2023-05-05T18:00:00+02:00"])])]])];
-            my $serialized = $root.to-xml;
-            cmp-deeply $serialized.ast, $expected, 'serialized OK';
+            is-two-way $root, $expected, "without :derive";
 
-            my $deserialized = Root.from-xml: $serialized.Str, :config(:$eager);
-            cmp-deeply $deserialized, $root, "deserialized version is the same";
-
-            $serialized = $root.to-xml(config => %( :eager, :derive ));
             $expected = "#xml" => [:root([:xmlns("http://root.namespace"), "xmlns:pfx" => "http://prefix.namespace", :rec(["xmlns:xstr" => "http://strings.namespace", :idx(["42"]), "xstr:val" => ["The Answer"], :meta([:comment(["some extra info"]), :created([:xmlns(""), "2023-05-05T18:00:00+02:00"])])])])];
-            cmp-deeply $serialized.ast, $expected, "serialized with :derive";
-
-            $deserialized = Root.from-xml: $serialized.Str, config => %( :$eager, :derive );
-            cmp-deeply $deserialized, $root, "deserialized version with :derive is the same";
+            is-two-way $root, $expected, config => { :derive }, "with :derive";
         }
 
         subtest "Serializer" => {
-            plan 2;
+            plan 1;
 
             my sub serializer-ver(Version:D $ver) {
                 "Ver." ~ $ver
@@ -231,12 +227,7 @@ for True, False -> $eager {
 
             my $root = Record.new(:ver(v1.2.3));
             my $expected = "#xml" => [:record([:ver(["Ver.1.2.3"])])];
-            my $serialized = $root.to-xml;
-
-            cmp-deeply $serialized.ast, $expected, "serialized OK";
-
-            my Record $deserialized .= from-xml: $serialized.Str, :config(:$eager);
-            cmp-deeply $deserialized, $root, "deserialized version is the same";
+            is-two-way $root, $expected;
         }
 
         subtest "Missing namespace prefix" => {
@@ -259,7 +250,7 @@ for True, False -> $eager {
         }
 
         subtest "XML:any" => {
-            plan 12;
+            plan 7;
 
             my class Record is xml-element('record') {
                 has Str:D $.id is required;
@@ -273,7 +264,7 @@ for True, False -> $eager {
                 has Str:D $.body is xml-text is required;
             }
 
-            my LibXML::Class::Config:D $config .= new:
+            my %config =
                 severity => STRICT,
                 :$eager,
                 :derive,
@@ -306,42 +297,47 @@ for True, False -> $eager {
 
             my $root = Root.new(:data("foo"), :array(1e0, 2e0, "some more"), :perm-name(pi), :$header);
             my $expected = "#xml" => [:root([:xmlns("http://test1.namespace"), "xmlns:pfx" => "http://test3.namespace", :header([:xmlns("http://header.namespace"), "hdr:hr" => ["xmlns:hdr" => "http://header.namespace", :title("testing things"), "lorem ipsum, та інша беліберда"]]), :data([:string(["foo"])]), :perm-name([:float(["3.141592653589793e+00"])]), :array([:float(["1.0e+00"])]), :array([:float(["2.0e+00"])]), :array([:string(["some more"])])])];
-            my $serialized = $root.to-xml(:$config);
-            cmp-deeply $serialized.ast, $expected, "all default namespaces";
-            my $deserialized = Root.from-xml: $serialized.Str, :$config;
-            cmp-deeply $deserialized, $root, "deserialized all default namespaces";
+            is-two-way $root, $expected, :%config, "all default namespaces";
+            # my $serialized = $root.to-xml(:$config);
+            # cmp-deeply $serialized.ast, $expected, "all default namespaces";
+            # my $deserialized = Root.from-xml: $serialized.Str, :$config;
+            # cmp-deeply $deserialized, $root, "deserialized all default namespaces";
 
             $root = Root.new(:data(Record.new(:id<id0>, :amount(42.12))), :array(1e0, 2e0, "some more"), :perm-name(pi));
             $expected = "#xml" => [:root([:xmlns("http://test1.namespace"), "xmlns:pfx" => "http://test3.namespace", :data([:record([:id("id0"), :amount("42.12")])]), :perm-name([:float(["3.141592653589793e+00"])]), :array([:float(["1.0e+00"])]), :array([:float(["2.0e+00"])]), :array([:string(["some more"])])])];
-            $serialized = $root.to-xml(:$config);
-            cmp-deeply $serialized.ast, $expected, "all default namespaces, with header";
-            $deserialized = Root.from-xml: $serialized.Str, :$config;
-            cmp-deeply $deserialized, $root, "deserialized all default namespaces, with header";
+            is-two-way $root, $expected, :%config, "all default namespaces, with header";
+            # $serialized = $root.to-xml(:$config);
+            # cmp-deeply $serialized.ast, $expected, "all default namespaces, with header";
+            # $deserialized = Root.from-xml: $serialized.Str, :$config;
+            # cmp-deeply $deserialized, $root, "deserialized all default namespaces, with header";
 
             $root = Root.new(:data(Record.new(:id<id0>, :amount(42.12))), :array(1, 2, "some more"), :perm-name(pi), :xml-default-ns(TEST-NS2));
             $expected = "#xml" => [:root([:xmlns("http://test2.namespace"), "xmlns:pfx" => "http://test3.namespace", :data([:rec([:id("id0"), :amount("42.12")])]), :perm-name([:xmlns("http://test1.namespace"), :float(["3.141592653589793e+00"])]), :array([:size(["1"])]), :array([:size(["2"])]), :array([:text(["some more"])])])];
-            $serialized = $root.to-xml(:$config);
-            cmp-deeply $serialized.ast, $expected, "default to the second test namespace";
-            $deserialized = Root.from-xml: $serialized.Str, :$config, :xml-default-ns(TEST-NS2);
-            cmp-deeply $deserialized, $root, "deserialized with default to the second test namespace";
+            is-two-way $root, $expected, :%config, profile => { :xml-default-ns(TEST-NS2) }, "default to the second test namespace";
+            # $serialized = $root.to-xml(:$config);
+            # cmp-deeply $serialized.ast, $expected, "default to the second test namespace";
+            # $deserialized = Root.from-xml: $serialized.Str, :$config, :xml-default-ns(TEST-NS2);
+            # cmp-deeply $deserialized, $root, "deserialized with default to the second test namespace";
 
             $root = Root.new(:data("foo"), :array(1, 2, "some more"), :perm-name(pi), :$header, :xml-default-ns(TEST-NS2));
             $expected = "#xml" => [:root([:xmlns("http://test2.namespace"), "xmlns:pfx" => "http://test3.namespace", :header([:xmlns("http://header.namespace"), "hdr:hr" => ["xmlns:hdr" => "http://header.namespace", :title("testing things"), "lorem ipsum, та інша беліберда"]]), :data([:text(["foo"])]), :perm-name([:xmlns("http://test1.namespace"), :float(["3.141592653589793e+00"])]), :array([:size(["1"])]), :array([:size(["2"])]), :array([:text(["some more"])])])];
-            $serialized = $root.to-xml(:$config);
-            cmp-deeply $serialized.ast, $expected, "default to the second test namespace, with header";
-            $deserialized = Root.from-xml: $serialized.Str, :$config, :namespace(TEST-NS2);
-            cmp-deeply $deserialized, $root, "deserialized with default to the second test namespace, with header";
+            is-two-way $root, $expected, :%config, profile => { :namespace(TEST-NS2) }, "default to the second test namesapce, with header";
+            # $serialized = $root.to-xml(:$config);
+            # cmp-deeply $serialized.ast, $expected, "default to the second test namespace, with header";
+            # $deserialized = Root.from-xml: $serialized.Str, :$config, :namespace(TEST-NS2);
+            # cmp-deeply $deserialized, $root, "deserialized with default to the second test namespace, with header";
 
             $root = Root.new(:data("foo"), :array(1e1, 2, "some more"), :perm-name(pi), :xml-default-ns-pfx<pfx>);
             $expected = "#xml" => ["pfx:root" => ["xmlns:pfx" => "http://test3.namespace", :xmlns("http://test1.namespace"), "pfx:data" => ["pfx:comment" => ["foo"]], :perm-name([:float(["3.141592653589793e+00"])]), "pfx:array" => ["pfx:volume" => ["1.0e+01"]], "pfx:array" => ["pfx:volume" => ["2"]], "pfx:array" => ["pfx:comment" => ["some more"]]]];
-            $serialized = $root.to-xml(:$config);
-            cmp-deeply $serialized.ast, $expected, "default to the third test namespace via a prefix";
-            $deserialized = Root.from-xml: $serialized.Str, :$config, :prefix<pfx>;
-            cmp-deeply $deserialized, $root, "deserialized with default the third test namespace via a prefix";
+            is-two-way $root, $expected, :%config, :profile{ :prefix<pfx> }, "default to the third test namespace via a prefix";
+            # $serialized = $root.to-xml(:$config);
+            # cmp-deeply $serialized.ast, $expected, "default to the third test namespace via a prefix";
+            # $deserialized = Root.from-xml: $serialized.Str, :$config, :prefix<pfx>;
+            # cmp-deeply $deserialized, $root, "deserialized with default the third test namespace via a prefix";
 
             $root = Root.new(:data(13), :array(1e0, 2e0, "some more"), :perm-name(pi));
             throws-like
-                { $root.to-xml(:$config) },
+                { $root.to-xml(:%config) },
                 LibXML::Class::X::Serialize::Impossible,
                 "xml:any attribute can't be serialized when there is no map for a type";
 
@@ -352,7 +348,7 @@ for True, False -> $eager {
                     :perm-name(pi),
                     :xml-default-ns(TEST-NS3) );
             throws-like
-                { $root.to-xml(:$config) },
+                { $root.to-xml(:%config) },
                 LibXML::Class::X::Serialize::Impossible,
                 "xml:any attribute can't be serialized when there is no map for even an xml-element type";
         }

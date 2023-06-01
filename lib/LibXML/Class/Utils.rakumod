@@ -23,4 +23,8 @@ sub merge-in-namespaces(Associative:D \into, Associative \from) is export {
 
 # In various reporting cases it makes sense to display an XML element without children and namespaces but with
 # attributes, for easier identification.
-sub brief-elem-str(LibXML::Element:D $elem) is export { $elem.canonicalize(:xpath('(. | @*)')) }
+sub brief-node-str(LibXML::Node:D $elem) is export { $elem.canonicalize(:xpath('(. | @*)')) }
+
+# Keep this an implementation detail
+my atomicint $next-id = -1;
+our sub next-id { ++⚛$next-id }

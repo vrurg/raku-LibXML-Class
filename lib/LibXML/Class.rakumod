@@ -8,8 +8,8 @@ INIT {
 }
 
 use AttrX::Mooish:ver<1.0.0+>:api<1.0.0+>;
+use AttrX::Mooish::Attribute;
 use Hash::Merge:ver<2.0.0>:auth<github:scriptkitties>:api<2>;
-use LibXML:ver<0.10.0>;
 use LibXML::Document;
 use LibXML::Element;
 use LibXML::Item;
@@ -48,12 +48,16 @@ my class DeserializingCtx does LibXML::Class::NS {
     has %.user-profile;
     # The resulting profile
     has %.profile = :$!document;
+    # List of unique-key => value pairs to be later relocated into object's deserialization registry.
+    has Pair:D @.deserializations;
 
     # Map namespace/node name into descriptor objects
     has %!xml-props;
     has %!xml-tags;
     # Target attribute for #text
     has $.xml-text;
+
+    has $!checked-up = False;
 
     submethod TWEAK {
         without %!profile<xml-namespaces> {
@@ -171,9 +175,23 @@ my class DeserializingCtx does LibXML::Class::NS {
         (%!xml-props{$namespace} andthen .{$xml-name}) orelse Nil
     }
 
-    method desc-for-elem(LibXML::Element:D $elem) {
-        my $namespace = $elem.namespaceURI // "";
-        my $elem-name = $elem.localname;
+    method add-deserialization(::?CLASS:D: LibXML::Node:D $node, Mu \value) is raw {
+        # note "+ DCTX deserialization for ", $node.^name, " ", brief-node-str($node), " -> ", value.raku;
+        @!deserializations.push: $node => value
+            if $!config.deserialization-registry;
+        value
+    }
+
+    # To be used when the actual relocation happens.
+    method take-out-deserializations {
+        my @d = @!deserializations;
+        @!deserializations = Empty;
+        @d
+    }
+
+    method desc-for-elem(::?CLASS:D: LibXML::Element:D $node) {
+        my $namespace = $node.namespaceURI // "";
+        my $elem-name = $node.localname;
         (%!xml-tags{$namespace} andthen .{$elem-name}) orelse Nil
     }
 
@@ -181,19 +199,16 @@ my class DeserializingCtx does LibXML::Class::NS {
         @!child-elems.grep(*.defined)
     }
 
-    method claim-child(LibXML::Node:D $elem, LibXML::Class::Attr::XMLish :$lazy-attr) {
-        @!child-elems[$!child-idx{$elem.unique-key}]:delete;
+    method claim-child(LibXML::Node:D $node, LibXML::Class::Attr::XMLish :$lazy-attr) {
+        @!child-elems[$!child-idx{$node.unique-key}]:delete;
     }
 
     method add-lazy(LibXML::Class::Attr::XMLish:D $lazy-attr, $initializer) {
         my $attr-name = $lazy-attr.name;
         # If the destination attribute is a positional we may expect more children to come later unless it is
-        # containerized.
-        if $lazy-attr ~~ LibXML::Class::Attr::XMLPositional {
+        # containerized. For text nodes there is even no container, we always anticipate more to come.
+        if $lazy-attr ~~ LibXML::Class::Attr::XMLPositional | LibXML::Class::Attr::XMLTextNode {
             (%!profile<xml-lazies>{$attr-name} //= []).push: $initializer;
-        }
-        elsif $lazy-attr ~~ LibXML::Class::Attr::XMLTextNode {
-            (%!profile<xml-lazies>{$attr-name} //= "") ~= $initializer;
         }
         else {
             if %!profile<xml-lazies>{$attr-name}:exists {
@@ -232,12 +247,23 @@ my class DeserializingCtx does LibXML::Class::NS {
             (%!profile{$pkey} // (%!profile{$pkey} := [])).push: value;
         }
         else {
-            if $node && %!profile.EXISTS-KEY($pkey) {
+            if $node.defined && %!profile.EXISTS-KEY($pkey) {
                 $!config.alert:
                     LibXML::Class::X::AttrDuplication::Node.new(:$node, :type($!into), :$attr)
             }
             %!profile{$pkey} := value;
         }
+    }
+
+    method check-up {
+        return if $!checked-up;
+
+        if @!deserializations {
+            warn "Deserialization context is dropped, but deserializations of the following elements remain unrequested:\n"
+                ~ @!deserializations.map({ "  " ~ brief-node-str(.key) }).join("\n");
+        }
+
+        $!checked-up = True;
     }
 
     method final-profile(--> Hash:D) is raw {
@@ -256,15 +282,18 @@ my class DeserializingCtx does LibXML::Class::NS {
         }
         # Preserve for lazy object creation. Could be optimized out at some point by analyzing if any laziness is
         # ever expected.
-        %!profile<xml-user-profile> = %!user-profile;
-
-        %!profile<xml-default-ns xml-default-ns-pfx> = $!xml-default-ns, $!xml-default-ns-pfx;
-
-        %!profile<xml-default-ns-pfx xml-document> = $!elem.prefix, $!document;
+        %!profile<xml-user-profile xml-default-ns xml-default-ns-pfx
+                  xml-default-ns-pfx xml-unique-key xml-document> =
+            %!user-profile, $!xml-default-ns, $!xml-default-ns-pfx,
+            $!elem.prefix, $!elem.unique-key, $!document;
 
         if %!profile<xml-seq-elems> || %!profile<xml-lazies> {
-            %!profile<xml-backing> = $!elem;
-            %!profile<xml-dctx> = self;
+            %!profile<xml-backing xml-dctx> = $!elem, self;
+        }
+
+        if @!deserializations {
+            # note "@@@ WE HAVE DESERIALIZATIONS for ", $!into.^name;
+            %!profile<XML-DESERIALIZATION-INVENTORY> = self.take-out-deserializations;
         }
 
         # Manually apply user profile to preserve key containerization.
@@ -275,9 +304,15 @@ my class DeserializingCtx does LibXML::Class::NS {
 
         %!profile
     }
+
+    submethod DESTROY {
+        self.check-up;
+    }
 }
 
-class XMLObject does LibXML::Class::Node {
+class XMLObject does LibXML::Class::Node does LibXML::Class::XML {
+    has Int:D $!xml-id = LibXML::Class::Utils::next-id;
+
     # Collection of AST nodes representing XML entities which do not have mapping into our class
     has $!xml-unused is mooish(:lazy(-> $, *% { [] }));
 
@@ -295,6 +330,11 @@ class XMLObject does LibXML::Class::Node {
     # What we've got as from-xml %profile argument
     has %!xml-user-profile;
 
+    # If deserialized then this would be the original element's value of .unique-key
+    has Str $!xml-unique-key;
+
+    has Array[Mu] %!xml-deserializations;
+
     # Setup some attributes explicitly because keeping them private is beneficial in certain cases like testing by
     # comparing objects where content of these is irrelevant.
     submethod TWEAK( Positional :$!xml-unused,
@@ -303,6 +343,8 @@ class XMLObject does LibXML::Class::Node {
                      LibXML::Class::Document :$!xml-document,
                      DeserializingCtx :$!xml-dctx,
                      Bool:D :$XML-DESERIALIZED = False,
+                     Str :$!xml-unique-key,
+                     :@XML-DESERIALIZATION-INVENTORY,
                      *%profile )
     {
         given self.xml-class.HOW {
@@ -316,6 +358,21 @@ class XMLObject does LibXML::Class::Node {
             # XML source.
             merge-in-namespaces(self.xml-namespaces, .xml-namespaces);
         }
+        self!MAYBE-REGISTER-ON-DOCUMENT;
+
+        if @XML-DESERIALIZATION-INVENTORY {
+            for @XML-DESERIALIZATION-INVENTORY {
+                # note "%%% TWEAK ADD TO DESER: ", .key, " => ", .value.raku,
+                #     |(
+                #         "\n   unique key: ", .key.unique-key if .key ~~ LibXML::Node
+                #     );
+                self.xml-add-deserialization( .key, .value )
+            }
+        }
+    }
+
+    method !MAYBE-REGISTER-ON-DOCUMENT {
+        $!xml-document.add-deserialization(self) with $!xml-unique-key;
     }
 
     method clone-from(Mu:D $obj) {
@@ -337,31 +394,39 @@ class XMLObject does LibXML::Class::Node {
         }
         # Make a copy of xml-lazies to make it independent from the original object. Otherwise any modifications to the
         # hash would be shared causing initialization of an attribute on any of the two objects resulting in no element
-        # found for initialization for another.
+        # found for initialization on another.
         %profile<xml-lazies> := $!xml-lazies.clone;
+        %profile<xml-id> = LibXML::Class::Utils::next-id;
         my $cloned := callwith(|%profile, |%twiddles);
         $cloned.post-clone(|%profile, |%twiddles);
         $cloned
     }
 
-    method post-clone(Associative :$!xml-lazies) { }
+    method post-clone(Associative :$!xml-lazies, UInt:D :$!xml-id) {
+        # note self.^name, " is about to register on document";
+        self!MAYBE-REGISTER-ON-DOCUMENT;
+    }
 
     method xml-config {
         $*LIBXML-CLASS-CONFIG // $!xml-document.config // LibXML::Class::Config.global
     }
 
     # For some purposes it's better for the attributes to remain private, see TWEAK's comment.
-    method xml-unused(::?CLASS:D:)       is raw { $!xml-unused }
-    method xml-backing(::?CLASS:D:)      is raw { $!xml-backing }
-    method xml-lazies(::?CLASS:D:)       is raw { $!xml-lazies }
-    method xml-document(::?CLASS:D:)     is raw { $!xml-document }
-    method xml-user-profile(::?CLASS:D:) is raw { %!xml-user-profile }
+    method xml-dctx(::?CLASS:D:)         { $!xml-dctx         }
+    method xml-unused(::?CLASS:D:)       { $!xml-unused       }
+    method xml-backing(::?CLASS:D:)      { $!xml-backing      }
+    method xml-lazies(::?CLASS:D:)       { $!xml-lazies       }
+    method xml-document(::?CLASS:D:)     { $!xml-document     }
+    method xml-user-profile(::?CLASS:D:) { %!xml-user-profile }
+    method xml-unique-key(::?CLASS:D:)   { $!xml-unique-key   }
+    method xml-id(::?CLASS:D:)           { $!xml-id           }
 
-    method xml-has-lazies(::?CLASS:D:) { ? $!xml-lazies }
+    method xml-has-lazies(::?CLASS:D:)   { ? $!xml-lazies     }
 
     method xml-serialize-stages is raw {
         ('xml-to-element-repr',)
     }
+
     method xml-profile-stages is raw {
         ('xml-from-element-repr',)
     }
@@ -370,6 +435,85 @@ class XMLObject does LibXML::Class::Node {
     # example, method xmlize of LibXML::Class::Config
     method xml-create(*%profile) {
         self.new: |%profile
+    }
+
+    method xml-add-deserialization(::?CLASS:D: LibXML::Node:D $node, Mu \repr --> Mu) {
+        if $.xml-config.deserialization-registry {
+            %!xml-deserializations{$node.unique-key}.push: repr;
+        }
+        repr
+    }
+
+    proto method xml-deserializations(::?CLASS:D: $ --> Mu) {*}
+    multi method xml-deserializations(::?CLASS:D: LibXML::Node:D $node --> Positional) is raw {
+        my $unique-key = $node.unique-key;
+        %!xml-deserializations.EXISTS-KEY($unique-key) ?? %!xml-deserializations.AT-KEY($unique-key) !! Nil
+    }
+    multi method xml-deserializations(::?CLASS:D: Str:D $key --> Positional) is raw {
+        %!xml-deserializations.EXISTS-KEY($key) ?? %!xml-deserializations.AT-KEY($key) !! Nil
+    }
+
+    proto method xml-has-deserialization(::?CLASS:D: $) {*}
+    multi method xml-has-deserialization(::?CLASS:D: LibXML::Node:D $node) {
+        %!xml-deserializations.EXISTS-KEY{$node.unique-key}
+    }
+    multi method xml-has-deserialization(::?CLASS:D: Str:D $key) {
+        %!xml-deserializations.EXISTS-KEY{$key}
+    }
+
+    proto method xml-remove-deserialization(::?CLASS:D: $) {*}
+    multi method xml-remove-deserialization(::?CLASS:D: ::?CLASS:D \repr --> Nil) {
+        nextwith repr.unique-key, repr
+    }
+    multi method xml-remove-deserialization(::?CLASS:D: Str:D $key, Mu \repr --> Nil) {
+        return unless %!xml-deserializations.EXISTS-KEY($key);
+        %!xml-deserializations{$key} .= grep({ $_ !=== repr });
+    }
+
+    # If there is a lazy attribute for this node then deserialize it.
+    # When :resolve-as-object late resolution entries, like container nodes, would return their owner object (us)
+    # instead of descriptor's attribute value.
+    method xml-find-deserializations(::?CLASS:D: LibXML::Node:D $node, Bool :$resolve-as-object = False --> Iterable) {
+        my $unique-key = $node.unique-key;
+        # note "? . find deserialization for ", brief-node-str($node);
+        if %!xml-deserializations.EXISTS-KEY($unique-key) {
+            my proto sub resolve-ds(|) {*}
+            multi sub resolve-ds(LibXML::Class::Attr::XMLish:D $desc) {
+                # If deserialization is registered as an attribute descriptor then update it with actual attribute's value.
+                # note "? . resolve as descriptor ", $desc, ", as object? ", $resolve-as-object;
+                my $attr = $desc.attr;
+                if $resolve-as-object {
+                    if $attr ~~ AttrX::Mooish::Attribute && !$attr.is-set(self) {
+                        # If attribute has been lazified then we may need to vivify it before returning. This is
+                        # necessary for XML-containerized attributes in order to get container child nodes registered
+                        # with this object.
+                        my $ := $attr.get_value(self).raku;
+                    }
+                    return self
+                }
+                $attr.get_value(self)
+            }
+            multi sub resolve-ds(\value) {
+                # note "? . resolve as plain value";
+                value
+            }
+            return %!xml-deserializations{$unique-key}.map: &resolve-ds
+        }
+
+        # Don't even try deserializing if there is no context. It means we're not lazy (never was or everything is
+        # already deserialized). xml-deserialize-node does this check too, but let's optimize a bit here.
+        without $!xml-dctx {
+            fail LibXML::Class::X::Deserialize::NoCtx.new(:type(self.WHAT), :node($node))
+        }
+
+        (self.xml-deserialize-node($node),)
+    }
+
+    method xml-findnodes(::?CLASS:D: |c) {
+        fail LibXML::Class::X::Deserialize::NoBacking.new(:type(self.WHAT), :what("use 'xml-findnodes' methods"))
+            without $!xml-backing;
+        # Use document's find-deserializations because the query might produce nodes from anywhere in the XML document.
+        $!xml-backing.findnodes(|c).map: { |$!xml-document.find-deserializations($_) }
     }
 
     method xml-create-child-element( ::?CLASS:D:
@@ -415,30 +559,53 @@ class XMLObject does LibXML::Class::Node {
         ~val
     }
 
+    my subset DeserializableSource of Any where LibXML::Node | Str;
+
     method xml-try-deserializer( LibXML::Class::Descriptor:D $desc,
-                                 Mu $value is raw,
+                                 DeserializableSource:D $source,
                                  &fallback?,
                                  Mu :$value-type is raw = NOT-SET,
+                                 DeserializingCtx :$dctx,
                                  Bool:D :$coerce = True
-        --> Mu) is raw
+                                 --> Mu ) is raw
     {
         my Mu $rc;
         my \expect-type = $value-type =:= NOT-SET ?? $desc.value-type !! $value-type;
+
+        my $value := do given $source {
+            when LibXML::Attr { .value  }
+            when LibXML::Text { .data   }
+            when LibXML::Node { Nil     }
+            default           { $source }
+        }
 
         # note "VALUE TYPE of ", $desc.descriptor-kind, " is ", expect-type.^name, "\n",
         #     "    deserializing from ", $value.WHICH, "\n",
         #     "    can deserialize? ", $desc.deserializer-cando($value);
 
-        unless (my Bool $use-type-to-str = !$desc.deserializer-cando($value)) {
-            $rc := try {
-                CATCH { default { return .Failure } }
-                CONTROL {
-                    when LibXML::Class::CX::Cannot {
-                        $use-type-to-str = True;
+        my Bool $use-type-to-str = !$desc.has-deserializer;
+
+        unless $use-type-to-str {
+            my $what =
+                $desc.deserializer-cando($source)
+                    ?? $source
+                    !! ($value andthen $desc.deserializer-cando($_))
+                        ?? $value
+                        !! Nil;
+            with $what {
+                $rc := try {
+                    CATCH { default { return .Failure } }
+                    CONTROL {
+                        when LibXML::Class::CX::Cannot {
+                            $use-type-to-str = True;
+                        }
+                        default { .rethrow }
                     }
-                    default { .rethrow }
+                    $desc.deserializer.($what)
                 }
-                $desc.deserializer.($value)
+            }
+            else {
+                $use-type-to-str = True;
             }
         }
 
@@ -450,172 +617,352 @@ class XMLObject does LibXML::Class::Node {
                         !! Nil;
         }
 
+        # If our source is a LibXML::Node then try registering its deserialization. Otherwise we only need the final
+        # result
+        if $rc !=:= Nil && $source ~~ LibXML::Node && $dctx.defined {
+            $dctx.add-deserialization($source, $rc);
+        }
+
         $rc
+    }
+
+    method !single-text-node(LibXML::Element:D $elem, Str $what?) {
+        unless $elem.childNodes.elems == 1 && (my $text := $elem.head) ~~ LibXML::Text:D {
+            LibXML::Class::X::Deserialize::BadNode.new(
+                :type(self.WHAT),
+                :expected("a simple " ~ |("$_ " with $what) ~ "XML element"),
+                :got("malformed " ~ brief-node-str($elem)) ).throw
+        }
+        $text
     }
 
     # xml-coerce-into-attr always works on a single string or element. Any containerization, positionals are to be unwrapped
     # by the upstream. Since associatives are always single-elemented we do handle them in here.
     proto method xml-coerce-into-attr(LibXML::Class::Attr::XMLish:D, $) {*}
 
-    multi method xml-coerce-into-attr(LibXML::Class::Attr::XMLAssociative:D $desc, LibXML::Element:D $elem) {
+    multi method xml-coerce-into-attr(LibXML::Class::Attr::XMLAssociative:D $desc, LibXML::Element:D $node) {
         my Mu \value-type = $desc.value-type;
         my Mu \key-type = $desc.type.keyof;
 
-        my $value-attr = $desc.value-attr;
-        my &mapper = $desc.has-deserializer
-            ?? $value-attr
-                ?? { self.xml-type-from-str(key-type, .localname)
-                        => self.xml-try-deserializer($desc, .getAttribute($value-attr)) }
-                !! { self.xml-type-from-str(key-type, .localname)
-                        => self.xml-try-deserializer($desc, .textContent) }
-            !! $value-attr
-                ?? { self.xml-type-from-str(key-type, .localname)
-                        => self.xml-type-from-str(value-type, .getAttribute($value-attr)) }
-                !! { self.xml-type-from-str(key-type, .localname)
-                        => self.xml-type-from-str(value-type, .textContent) };
+        my $dctx = $*LIBXML-CLASS-CTX;
 
-        $elem.childNodes.map(&mapper).cache
+        my $value-attr = $desc.value-attr;
+
+        # note "%%% COERCING INTO ", $desc.name, " from ", brief-node-str($node), " // ", $dctx.WHICH;
+
+        my sub mapper-attr($_) {
+            my $xml-attr = .getAttributeNode($value-attr);
+            # note "%%% MAPPER ATTR for ", $xml-attr;
+            $dctx.add-deserialization:
+                $_,
+                (self.xml-type-from-str(key-type, .localname) => self.xml-try-deserializer($desc, $xml-attr, :$dctx))
+        }
+        my sub mapper-text($_) {
+            # note "%%% MAPPER TEXT for ", .WHICH;
+            $dctx.add-deserialization:
+                $_,
+                (self.xml-type-from-str(key-type, .localname) =>
+                    self.xml-try-deserializer($desc, self!single-text-node($_, "hash pair"), :$dctx))
+        }
+
+        my &mapper = $value-attr ?? &mapper-attr !! &mapper-text;
+
+        $node.childNodes.map(&mapper).eager
     }
 
-    multi method xml-coerce-into-attr(LibXML::Class::Attr::XMLValueElement:D $desc, LibXML::Element:D $elem) {
+    multi method xml-coerce-into-attr(LibXML::Class::Attr::XMLValueElement:D $desc, LibXML::Element:D $node) {
         # Deserializer of an element attribute takes the element. We wash our hands here.
         # note "? trying deserializer with ", $desc.descriptor-kind;
         my $not-deserialized = False;
-        my Mu $value := self.xml-try-deserializer: $desc, $elem, :!coerce, {
+        my $dctx = $*LIBXML-CLASS-CTX;
+
+        # note "??? Try deserializer on node ", $node;
+        my Mu $value := self.xml-try-deserializer: $desc, $node, :!coerce, :$dctx, {
             # This is a fallback when for any reason user deserializer hasn't produced a value.
             $not-deserialized = True;
+            Nil
         };
         # note "? not deserialized: ", $not-deserialized, ", value=", $value.raku;
-        return $value unless $not-deserialized;
 
-        my $dctx = $*LIBXML-CLASS-CTX;
-        my $xml-config = $.xml-config;
+        if $not-deserialized {
+            my $xml-config = $.xml-config;
 
-        my Mu $desc-type;
-        my Mu $value-type;
-        my LibXML::Element:D $velem = $elem;
-        my %named = :user-profile($dctx.user-profile);
+            my Mu $desc-type;
+            my Mu $value-type;
+            my $is-any = $desc.is-any;
+            my LibXML::Element:D $velem = $node;
+            my %named = :user-profile($dctx.user-profile);
 
-        if $desc.is-any {
-            $velem = $elem.elements.head;
-            $desc-type := nominalize-type($value-type := $xml-config.ns-map($velem));
-            if $desc-type =:= Nil {
-                my $ex = LibXML::Class::X::Deserialize::NoNSMap.new(:type(self.WHAT), :elem($velem));
-                $xml-config.alert: $ex;
-                # Unless severity level is  STRICT then return a Failure. If that's ok with the user and their
-                # destination container allows for it then that failure can be used by serialization to reproduce the
-                # original element. Otherwise throwing due to failed typecheck would be a totally reasonable outcome.
-                fail $ex
+            if $is-any {
+                $velem = $node.elements.head;
+                $desc-type := nominalize-type($value-type := $xml-config.ns-map($velem));
+                if $desc-type =:= Nil {
+                    my $ex = LibXML::Class::X::Deserialize::NoNSMap.new(:type(self.WHAT), :elem($velem));
+                    $xml-config.alert: $ex;
+                    # Unless severity level is  STRICT then return a Failure. If that's ok with the user and their
+                    # destination container allows for it then that failure can be used by serialization to reproduce the
+                    # original element. Otherwise throwing due to failed typecheck would be a totally reasonable outcome.
+                    fail $ex
+                }
+
+                # Element name may differ from what's $desc-type default name is. Make sure it won't be a problem.
+                %named<name> = $velem.localName;
+            }
+            else {
+                $value-type := $desc.value-type<>;
+                $desc-type := $desc.nominal-type<>;
+                %named<name> = $desc.value-name;
             }
 
-            # Element name may differ from what's $desc-type default name is. Make sure it won't be a problem.
-            %named<name> = $velem.localName;
-        }
-        else {
-            $value-type := $desc.value-type<>;
-            $desc-type := $desc.nominal-type<>;
-            %named<name> = $desc.value-name;
-        }
-
-        unless $desc-type ~~ BasicType | XMLRepresentation {
-            if $desc-type.^archetypes.composable {
-                # If we got here then attribute's type is a role and there is no way to find out what class to
-                # deserialize into.
-                LibXML::Class::X::Deserialize::Role.new(:type(self.WHAT), :$desc).throw
+            unless $desc-type ~~ BasicType | XMLRepresentation {
+                if $desc-type.^archetypes.composable {
+                    # If we got here then attribute's type is a role and there is no way to find out what class to
+                    # deserialize into.
+                    LibXML::Class::X::Deserialize::Role.new(:type(self.WHAT), :$desc).throw
+                }
+                $desc-type := $xml-config.xmlize($desc-type, XMLRepresentation);
             }
-            $desc-type := $xml-config.xmlize($desc-type, XMLRepresentation);
-        }
 
-        # If destination type is an XMLRepresentation then let it deserialize itself
-        if $desc-type ~~ XMLRepresentation {
-            # Make sure prefixes declared with this attribute xml-element are propagaded downstream.
-            my %*LIBXML-CLASS-NS-OVERRIDE = $desc.xml-namespaces;
-            %named<namespace prefix> =
-                $desc.compose-ns(:from(self), :default-ns($dctx.xml-default-ns), :default-pfx($dctx.xml-default-ns-pfx));
-            return $desc-type.from-xml($velem, $dctx.document, |%named)
-        }
+            # If destination type is an XMLRepresentation then let it deserialize itself
+            if $desc-type ~~ XMLRepresentation {
+                # Make sure prefixes declared with this attribute xml-element are propagaded downstream.
+                my %*LIBXML-CLASS-NS-OVERRIDE = $desc.xml-namespaces;
+                %named<namespace prefix> =
+                    $desc.compose-ns(:from(self), :default-ns($dctx.xml-default-ns), :default-pfx($dctx.xml-default-ns-pfx));
+                $value := $desc-type.from-xml($velem, $dctx.document, |%named)
+            }
+            else {
+                # Otherwise this is a case of simple element where we need either text content or value attribute.
+                my $value-attr = $desc.value-attr;
+                $value :=
+                    self.xml-try-deserializer:
+                        $desc,
+                        ( $value-attr
+                            ?? $velem.getAttributeNode($value-attr)
+                            !! self!single-text-node($velem) ),
+                        :$value-type,
+                        :$dctx;
+            }
 
-        # Otherwise this is a case of a simple element where we need either its text content or value attribute.
-        self.xml-try-deserializer: $desc, ($_ ?? $velem.getAttribute($_) !! $velem.textContent), :$value-type
-            given $desc.value-attr
+            # $velem will differ from $node in XML:any case
+            $dctx.add-deserialization($velem, $value) if $is-any;
+        }
+        # note "--- coerced ", brief-node-str($node), " into ", $value.raku;
+        # If XML:any then $value is the inner tag and we'd need to register the outer too.
+        $dctx.add-deserialization($node, $value)
     }
 
     multi method xml-coerce-into-attr(LibXML::Class::Attr::XMLAttribute:D $desc, LibXML::Attr:D $xml-attr) {
-        self.xml-try-deserializer: $desc, $xml-attr.value
+        self.xml-try-deserializer: $desc, $xml-attr, :dctx($*LIBXML-CLASS-CTX)
     }
 
     multi method xml-coerce-into-attr(LibXML::Class::Attr::XMLTextNode:D $desc, Str:D $xml-value) {
         self.xml-try-deserializer: $desc, $xml-value
     }
 
-    method xml-lazy-deserialize-context(&code, LibXML::Class::NS :$desc) is raw {
+    method xml-lazy-deserialize-context(&code --> Mu) is raw {
         my $*LIBXML-CLASS-CTX = $!xml-dctx;
         my $*LIBXML-CLASS-CONFIG = $!xml-dctx.document.config;
         # Where there is no more lazies to deserialize we don't need the context object anymore.
         LEAVE {
             unless self.xml-has-lazies {
+                $!xml-dctx.check-up;
                 $!xml-dctx = Nil;
-                $!xml-backing = Nil;
             }
         }
         &code()
+    }
+
+    method !xml-post-deserialize-attr(Str:D $attr-name) {
+        # note "%%% POST-DESERIALIZING $attr-name // ", $*LIBXML-CLASS-CTX.WHICH;
+        $!xml-lazies.DELETE-KEY($attr-name);
+        for $*LIBXML-CLASS-CTX.take-out-deserializations<> -> (:key($node), :$value) {
+            # note "%%% + deser for ", brief-node-str($node), " -> ", $value.raku;
+            self.xml-add-deserialization($node, $value);
+        }
     }
 
     # This method is to be used as the builder for lazy attributes.
     proto method xml-deserialize-attr(::?CLASS:D: |) {*}
 
     # This candidate would basically serve as the entry point because $attribute is always passed in by AttrX::Mooish
-    multi method xml-deserialize-attr(::?CLASS:D: Str:D :$attribute!) {
-        self.xml-deserialize-attr: $attribute, self.^xml-get-attr($attribute)
+    multi method xml-deserialize-attr(::?CLASS:D: Str:D :$attribute! --> Mu) is raw {
+        self.xml-deserialize-attr($attribute, self.^xml-get-attr($attribute))
     }
 
-    multi method xml-deserialize-attr(::?CLASS:D: Str:D $attr-name, LibXML::Class::Attr::XMLPositional:D $attr) {
+    multi method xml-deserialize-attr( ::?CLASS:D:
+                                       Str:D $attr-name,
+                                       LibXML::Class::Attr::XMLPositional:D $attr
+                                       --> Mu ) is raw
+    {
         with $!xml-lazies{$attr-name} -> \initializer {
-            return self.xml-lazy-deserialize-context: :desc($attr), {
-                # If all succeeded then there is no more need to hold the source element.
-                KEEP $!xml-lazies.DELETE-KEY($attr-name);
+            return self.xml-lazy-deserialize-context: {
+                # If succeeded then there is no more need to hold the source element.
+                KEEP self!xml-post-deserialize-attr($attr-name);
                 # Map creates a lazy Seq where map's code is invoked under another stack frame than this one thus
                 # effectively loosing the dynamic context and all $*LIBXML-CLASS variables. .eager forces it to be
                 # executed in place.
-                initializer.map({
-                    $attr.type-check:
-                        self.xml-coerce-into-attr($attr, $_),
-                        # Use code to postpone message generation until really needed
-                        { "while deserializing " ~ brief-elem-str($_) }
-                }).eager
+                # note "? . will coerce into ", $attr.name;
+                initializer.map({ self.xml-coerce-into-attr($attr, $_) }).eager
             }
         }
         Empty
     }
 
-    multi method xml-deserialize-attr(::?CLASS:D: Str:D $attr-name, LibXML::Class::Attr::XMLish:D $attr) {
-        my Mu $value := Nil;
+    multi method xml-deserialize-attr( ::?CLASS:D:
+                                       Str:D $attr-name,
+                                       LibXML::Class::Attr::XMLTextNode:D $attr
+                                       --> Mu ) is raw
+    {
         with $!xml-lazies{$attr-name} -> \initializer {
-            self.xml-lazy-deserialize-context: :desc($attr), {
-                $value := self.xml-coerce-into-attr($attr, initializer);
-                # If all succeeded then there is no more need to hold the source element.
-                $!xml-lazies.DELETE-KEY($attr-name);
+            return self.xml-lazy-deserialize-context: {
+                my Mu $value;
+
+                KEEP {
+                    $!xml-lazies.DELETE-KEY{$attr-name};
+                    self.xml-add-deserialization($_, $value) for initializer<>;
+                }
+
+                my $text-content = initializer.map(*.data).join;
+                $text-content .= trim if $attr.trim;
+                $value := self.xml-coerce-into-attr($attr, $text-content)
             }
         }
-        $attr.type-check:
-            $value,
-            # Use code to postpone message generation until really needed
-            { "while deserializing " ~ brief-elem-str($!xml-backing) }
+        Nil
     }
 
-    method xml-decontainerize(LibXML::Element:D $elem,
-                              LibXML::Class::Attr::XMLContainer:D $attr,
-                              Str:D $expected-ns = $elem.namespaceURI // "",
-                              # Should we throw away empty #text?
-                              Bool :$trim
-        --> Iterable:D)
+    multi method xml-deserialize-attr( ::?CLASS:D:
+                                       Str:D $attr-name,
+                                       LibXML::Class::Attr::XMLish:D $attr
+                                       --> Mu ) is raw
     {
-        return ($elem,) unless $attr.container;
+        # note "%%% DESERIALIZING $attr-name";
+        with $!xml-lazies{$attr-name} -> \initializer {
+            return self.xml-lazy-deserialize-context: {
+                # If all succeeded then there is no more need to hold the source element.
+                KEEP self!xml-post-deserialize-attr($attr-name);
+                self.xml-coerce-into-attr($attr, initializer)
+            }
+        }
+        Nil
+    }
+
+    proto method xml-deserialize-node(::?CLASS:D: | --> Mu) {*}
+
+    multi method xml-deserialize-node(::?CLASS:D: LibXML::Attr:D $xml-attr --> Mu) is raw {
+        # No context means no lazies to deserialize
+        fail LibXML::Class::X::Deserialize::NoCtx.new(:node($xml-attr), :type(self.WHAT))
+            without $!xml-dctx;
+
+        with $!xml-dctx.attr-for-prop($xml-attr) -> LibXML::Class::Attr::XMLAttribute $attr {
+            self.xml-deserialize-attr($attr.name, $attr);
+            return self.xml-deserialization($xml-attr)
+                // LibXML::Class::X::Deserialize::ForeignNode.new(
+                    :type(self.WHAT),
+                    :node($.xml-backing),
+                    :expected($xml-attr)).Failure
+        }
+
+        fail LibXML::Class::X::Deserialize::NoDescriptor.new(:type(self.WHAT), :node($xml-attr))
+    }
+
+    multi method xml-deserialize-node(::?CLASS:D: LibXML::Text:D $text --> Mu) is raw {
+        # No context means no lazies to deserialize
+        fail LibXML::Class::X::Deserialize::NoCtx.new(:node($text), :type(self.WHAT))
+            without $!xml-dctx;
+
+        with $!xml-dctx.xml-text -> LibXML::Class::Attr::XMLTextNode $attr {
+            self.xml-deserialize-attr($attr.name, $attr);
+            return self.xml-deserialization($text)
+                // LibXML::Class::X::Deserialize::ForeignNode.new(
+                    :type(self.WHAT),
+                    :node($.xml-backing),
+                    :expected($text)).Failure
+        }
+
+        fail LibXML::Class::X::Deserialize::NoDescriptor.new(:type(self.WHAT), :node($text))
+    }
+
+    multi method xml-deserialize-node(::?CLASS:D: LibXML::Element:D $node --> Mu) is raw {
+        # No context means no lazies to deserialize
+        fail LibXML::Class::X::Deserialize::NoCtx.new(:$node, :type(self.WHAT))
+            without $!xml-dctx;
+
+        with $!xml-dctx.desc-for-elem($node) -> $desc {
+            return self.xml-deserialize-element($node, $desc)
+        }
+
+        fail LibXML::Class::X::Deserialize::NoDescriptor.new(:type(self.WHAT), :node($node))
+    }
+
+    multi method xml-deserialize-element( ::?CLASS:D:
+                                          LibXML::Element:D $node,
+                                          LibXML::Class::Attr::XMLPositional:D $desc
+                                          --> Mu ) is raw
+    {
+        # First we need to find out what is element's index
+        with $!xml-lazies{$desc.name} {
+            my $unique-key = $node.unique-key;
+            for .kv -> $idx, $cand {
+                if $cand.unique-key eq $unique-key {
+                    return $desc.attr.get_value(self)[$idx]
+                }
+            }
+        }
+
+        nextwith($node, $desc, :no-match)
+    }
+
+    multi method xml-deserialize-element( ::?CLASS:D:
+                                          LibXML::Element:D $node,
+                                          LibXML::Class::Attr::XMLValueElement:D $desc
+                                          --> Mu ) is raw
+    {
+        if $desc.attr.is-set(self) {
+            my $deserialization := $desc.attr.get_value(self);
+            return $deserialization if $deserialization.xml-unique-key eq $node.unique-key;
+            fail $desc.gist.tc
+                ~ " is already deserialized but its unique key "
+                ~ $deserialization.xml-unique-key ~ " doesn't match "
+                ~ brief-node-str($node) ~ " key " ~ $node.unique-key;
+        }
+        with $!xml-lazies{$desc.name} {
+            return $desc.attr.get_value(self) if .unique-key eq $node.unique-key
+        }
+
+        nextwith($node, $desc, :no-match)
+    }
+
+    multi method xml-deserialize-element( ::?CLASS:D:
+                                          LibXML::Element:D $node,
+                                          LibXML::Class::Attr::XMLish:D $desc,
+                                          Bool:D :$no-match! )
+    {
+        die "Proposed element " ~ brief-node-str($node) ~ " for attribute " ~ $desc.name
+            ~ " doesn't match lazies"
+    }
+
+    multi method xml-deserialize-element(::?CLASS:D: LibXML::Element:D $node, $desc) {
+        die "Can't deserialize element " ~ brief-node-str($node) ~ " with " ~ $desc.gist
+    }
+
+    method xml-decontainerize( LibXML::Element:D $node,
+                               LibXML::Class::Attr::XMLContainer:D $attr,
+                               Str:D $expected-ns = $node.namespaceURI // "",
+                               # Should we throw away empty #text?
+                               Bool :$trim
+                               --> Iterable:D )
+    {
+        return ($node,) unless $attr.container;
+
+        # Register the container element to be late-resolved into the final value. We must do it by registering the
+        # attribute descriptor because lazy deserialization doesn't care and pay no attention to containers.
+        $*LIBXML-CLASS-CTX.add-deserialization($node, $attr);
 
         # If we got here it means the container element has been validated already and matches NS and container name
         # of the attribute $attr
         gather {
-            for $elem.children -> LibXML::Node:D $child {
+            for $node.children -> LibXML::Node:D $child {
                 if $child ~~ LibXML::Text {
                     next if $trim && !$child.data.trim;
                     take $child;
@@ -626,7 +973,7 @@ class XMLObject does LibXML::Class::Node {
                         LibXML::Class::X::NS::Mismatch.new(
                             :expected($expected-ns),
                             :got($childNS),
-                            :what("child element '" ~ $child.name ~ "' of container '" ~ $elem.name ~ "'")).throw
+                            :what("child element '" ~ $child.name ~ "' of container '" ~ $node.name ~ "'")).throw
                     }
                     take $child
                 }
@@ -669,11 +1016,11 @@ class XMLObject does LibXML::Class::Node {
     }
 
     # Take a dummy XML element and complete it with data from attribute value.
-    method xml-ser-attr-val2elem( LibXML::Element:D $elem,
+    method xml-ser-attr-val2elem( LibXML::Element:D $node,
                                   LibXML::Class::Attr::XMLish:D $desc,
                                   Mu $value )
     {
-        my LibXML::Element:D $velem = $elem;
+        my LibXML::Element:D $velem = $node;
 
         if $desc.is-any {
             my $xml-config = $.xml-config;
@@ -682,7 +1029,7 @@ class XMLObject does LibXML::Class::Node {
             # so that if it refers to upstream xmlns prefixes then it will have them readily available.
 
             # Map through configuration's ns-map first.
-            my $ns = $elem.namespaceURI // "";
+            my $ns = $node.namespaceURI // "";
             without my $ns-map = $xml-config.ns-map-type($value.WHAT, :$ns) {
                 $xml-config.alert:
                     LibXML::Class::X::Serialize::Impossible.new(
@@ -695,21 +1042,21 @@ class XMLObject does LibXML::Class::Node {
             }
 
             $velem = self.xml-create-child-element:
-                        $elem,
+                        $node,
                         ($value ~~ XMLRepresentation ?? $value !! $desc),
                         :name($ns-map.xml-name),
                         # only take attribute's element prefix if set. Namespace would be irrelevant since it would be
                         # just borrowed in the absense of the prefix. This only works for XML:any-sourced elements.
-                        |(:prefix($_) with $elem.prefix);
+                        |(:prefix($_) with $node.prefix);
         }
 
         self.xml-ser-desc-val2elem($velem, $desc, $value);
-        $elem
+        $node
     }
 
     proto method xml-serialize-attr(LibXML::Element:D, LibXML::Class::Attr::XMLish:D) {*}
 
-    multi method xml-serialize-attr(LibXML::Element:D $elem, LibXML::Class::Attr::XMLAttribute:D $desc) {
+    multi method xml-serialize-attr(LibXML::Element:D $node, LibXML::Class::Attr::XMLAttribute:D $desc) {
         my $value := $desc.attr.get_value(self);
 
         return without $value;
@@ -717,35 +1064,35 @@ class XMLObject does LibXML::Class::Node {
         my $xml-attr-name = $desc.xml-name;
         my $xml-attr-value = self.xml-ser-desc-value($desc, $value);
 
-        my ($ns, $) = $desc.compose-ns(:from($elem), :resolve);
+        my ($ns, $) = $desc.compose-ns(:from($node), :resolve);
 
         with $ns {
-            $elem.setAttributeNS: $ns, $xml-attr-name, $xml-attr-value;
+            $node.setAttributeNS: $ns, $xml-attr-name, $xml-attr-value;
         }
         else {
-            $elem.setAttribute: $xml-attr-name, $xml-attr-value;
+            $node.setAttribute: $xml-attr-name, $xml-attr-value;
         }
     }
 
-    multi method xml-serialize-attr(LibXML::Element:D $elem, LibXML::Class::Attr::XMLTextNode:D $desc) {
+    multi method xml-serialize-attr(LibXML::Element:D $node, LibXML::Class::Attr::XMLTextNode:D $desc) {
         with $desc.get_value(self) {
-            $elem.appendText: self.xml-ser-desc-value($desc, $_);
+            $node.appendText: self.xml-ser-desc-value($desc, $_);
         }
     }
 
-    multi method xml-serialize-attr(LibXML::Element:D $elem, LibXML::Class::Attr::XMLPositional:D $desc) {
+    multi method xml-serialize-attr(LibXML::Element:D $node, LibXML::Class::Attr::XMLPositional:D $desc) {
         my \attr-values := $desc.get_value(self);
 
         return unless attr-values;
 
         # Positional containerization differs from other elements since by default their elements are direct
         # children of the parent.
-        my ($namespace, $prefix) = $desc.compose-ns(:from($elem));
+        my ($namespace, $prefix) = $desc.compose-ns(:from($node));
 
         my LibXML::Element:D $celem =
             $desc.container
-                ?? self.xml-create-child-element($elem, $desc, :name($desc.container-name), :$namespace, :$prefix)
-                !! $elem;
+                ?? self.xml-create-child-element($node, $desc, :name($desc.container-name), :$namespace, :$prefix)
+                !! $node;
 
         for attr-values<> -> $avalue {
             my $velem =
@@ -754,15 +1101,15 @@ class XMLObject does LibXML::Class::Node {
         }
     }
 
-    multi method xml-serialize-attr(LibXML::Element:D $elem, LibXML::Class::Attr::XMLAssociative:D $desc) {
+    multi method xml-serialize-attr(LibXML::Element:D $node, LibXML::Class::Attr::XMLAssociative:D $desc) {
         my %attr-values = $desc.get_value(self);
 
         return unless %attr-values;
 
-        my $document = $elem.ownerDocument;
+        my $document = $node.ownerDocument;
 
-        my ($namespace, $prefix) = $desc.compose-ns(:from($elem));
-        my $celem = self.xml-create-child-element($elem, $desc, :$namespace, :$prefix);
+        my ($namespace, $prefix) = $desc.compose-ns(:from($node));
+        my $celem = self.xml-create-child-element($node, $desc, :$namespace, :$prefix);
 
         $desc.xml-apply-ns($celem, :$namespace, :$prefix);
 
@@ -773,20 +1120,20 @@ class XMLObject does LibXML::Class::Node {
         }
     }
 
-    multi method xml-serialize-attr(LibXML::Element:D $elem, LibXML::Class::Attr::XMLValueElement:D $desc) {
+    multi method xml-serialize-attr(LibXML::Element:D $node, LibXML::Class::Attr::XMLValueElement:D $desc) {
         my $value := $desc.get_value(self);
 
         return without $value;
 
-        my $document = $elem.ownerDocument;
+        my $document = $node.ownerDocument;
         my $attr-type := $desc.nominal-type<>;
 
-        my (Str $namespace, Str $prefix) = $desc.compose-ns(:from($elem));
+        my (Str $namespace, Str $prefix) = $desc.compose-ns(:from($node));
 
         my LibXML::Element:D $celem =
             $desc.container
-                ?? self.xml-create-child-element($elem, $desc, :name($desc.container-name), :$namespace, :$prefix)
-                !! $elem;
+                ?? self.xml-create-child-element($node, $desc, :name($desc.container-name), :$namespace, :$prefix)
+                !! $node;
 
         my LibXML::Element:D $attr-elem =
             self.xml-create-child-element($celem, $desc, :name($desc.value-name($value)), :$namespace, :$prefix);
@@ -794,39 +1141,39 @@ class XMLObject does LibXML::Class::Node {
         self.xml-ser-attr-val2elem: $attr-elem, $desc, $value;
     }
 
-    method xml-to-element-repr(LibXML::Element:D $elem) {
+    method xml-to-element-repr(LibXML::Element:D $node) {
         for self.^xml-attrs(:!local).values -> LibXML::Class::Attr::XMLish:D $desc {
-            self.xml-serialize-attr($elem, $desc)
+            self.xml-serialize-attr($node, $desc)
         }
     }
 
     method xml-to-element( ::?CLASS:D:
-                           LibXML::Element:D $elem,
+                           LibXML::Element:D $node,
                            Str :ns(:xml-default-ns(:$namespace)),
                            Str :xml-default-ns-pfx(:$prefix)
         --> LibXML::Element:D ) is implementation-detail
     {
-        self.xml-apply-ns( $elem, :$namespace, :$prefix,
+        self.xml-apply-ns( $node, :$namespace, :$prefix,
                            # Don't override default namespace and prefix if any of them is already set.
-                           default => (! ($elem.prefix // $elem.namespaceURI).defined) );
+                           default => (! ($node.prefix // $node.namespaceURI).defined) );
 
         $.xml-unused andthen .map: -> $ast {
             given LibXML::Item.ast-to-xml($ast) {
                 when LibXML::Attr {
-                    $elem.setAttributeNode($_);
+                    $node.setAttributeNode($_);
                 }
                 default {
-                    $elem.add: $_
+                    $node.add: $_
                 }
             }
         }
 
         # Process all our XML attributes
         for self.xml-serialize-stages -> $stage {
-            self."$stage"($elem);
+            self."$stage"($node);
         }
 
-        $elem
+        $node
     }
 
     method xml-new-dctx(*%profile) {
@@ -888,7 +1235,7 @@ class XMLObject does LibXML::Class::Node {
         {
             CATCH {
                 default {
-                    LibXML::Class::X::Deserialize::New.new( :type(self.WHAT), :exception($_), :$elem ).throw
+                    LibXML::Class::X::Deserialize::Constructor.new( :type(self.WHAT), :exception($_), :$elem ).throw
                 }
             }
             self.xml-create: |$dctx.final-profile
@@ -919,6 +1266,8 @@ class XMLObject does LibXML::Class::Node {
     }
 
     proto method from-xml(|) {*}
+
+    multi method from-xml( IO:D $source, |c) { self.from-xml: $source.slurp(:close), |c }
 
     multi method from-xml( Str:D $source-xml,
                            Str :$name,
@@ -1045,7 +1394,7 @@ class XMLObject does LibXML::Class::Node {
     }
 }
 
-our role XMLRepresentation does LibXML::Class::XML is XMLObject {
+our role XMLRepresentation is XMLObject {
     method xml-build-name {
         (::?CLASS.^xml-name if ::?CLASS.HOW ~~ LibXML::Class::HOW::Element) // ::?CLASS.^shortname
     }
@@ -1087,7 +1436,9 @@ our role XMLRepresentation does LibXML::Class::XML is XMLObject {
 
         # When eager and there is text content for the element then this is where we collect content of all text nodes
         # before coercing it into xml-text attribute target type.
-        my Str $element-text-content;
+        my @element-text-nodes;
+        my $xml-text-desc = $dctx.xml-text;
+        my $is-text-lazy = ? ($xml-text-desc && !$force-eager && ($dctx.xml-text.lazy // $lazy-class));
 
         for $dctx.unclaimed-children -> LibXML::Node:D $node {
             given $node {
@@ -1126,7 +1477,7 @@ our role XMLRepresentation does LibXML::Class::XML is XMLObject {
                         else {
                             for $value-elems {
                                 if $_ ~~ LibXML::Element {
-                                    $dctx.to-profile: $attr, self.xml-coerce-into-attr($attr, $_), :node($node);
+                                    $dctx.to-profile: $attr, self.xml-coerce-into-attr($attr, $_), :$node;
                                 }
                                 else {
                                     $dctx.config.alert:
@@ -1142,14 +1493,12 @@ our role XMLRepresentation does LibXML::Class::XML is XMLObject {
                     }
                 }
                 when LibXML::Text {
-                    with $dctx.xml-text {
-                        my $text-content = $node.data;
-                        $text-content .= trim if .trim;
-                        if !$force-eager && (.lazy // $lazy-class) {
-                            $dctx.add-lazy($_, $text-content)
+                    with $xml-text-desc {
+                        if $is-text-lazy {
+                            $dctx.add-lazy($_, $node);
                         }
                         else {
-                            ($element-text-content //= "") ~= $text-content;
+                            @element-text-nodes.push: $node;
                         }
 
                         $dctx.claim-child($node);
@@ -1158,8 +1507,16 @@ our role XMLRepresentation does LibXML::Class::XML is XMLObject {
             }
         }
 
-        with $element-text-content {
-            $dctx.to-profile: $dctx.xml-text, self.xml-coerce-into-attr($dctx.xml-text, $_);
+        # We have a non-lazy xml-text attribute
+        if $dctx.xml-text && @element-text-nodes {
+            my $text-content = $dctx.elem.textContent;
+            $text-content .= trim if $xml-text-desc.trim;
+
+            my \value = self.xml-coerce-into-attr($xml-text-desc, $text-content);
+            $dctx.to-profile: $xml-text-desc, value;
+
+            # We now know the final value of xml-text and can register all text nodes that contributed to it.
+            $dctx.add-deserialization($_, value) for @element-text-nodes;
         }
     }
 }
@@ -1207,22 +1564,22 @@ class XMLSequence does Positional does Iterable {
         my $xml-config = $dctx.config;
         my $of-type := self.of;
 
-        for $dctx.unclaimed-children.grep(LibXML::Element) -> LibXML::Element:D $elem {
-            if $dctx.desc-for-elem($elem) ~~ LibXML::Class::ItemDescriptor:D
+        for $dctx.unclaimed-children.grep(LibXML::Element) -> LibXML::Element:D $node {
+            if $dctx.desc-for-elem($node) ~~ LibXML::Class::ItemDescriptor:D
                 or (self.xml-seq-either-any
                     # If xml:any then tag must be in the namespace map and match an allowed item type
-                    && (my \any-type = $xml-config.ns-map($elem)) !=== Nil
+                    && (my \any-type = $xml-config.ns-map($node)) !=== Nil
                     && any-type ~~ $of-type)
             {
-                $dctx.to-profile('xml-seq-elems', $elem, :positional);
-                $dctx.claim-child($elem);
+                $dctx.to-profile('xml-seq-elems', $node, :positional);
+                $dctx.claim-child($node);
             }
         }
     }
 
-    method !xml-ser-guess-descriptor(LibXML::Element:D $elem, Mu $item) {
+    method !xml-ser-guess-descriptor(LibXML::Element:D $node, Mu $item) {
         my @desc = |self.xml-seq-desc-for-type($item);
-        my Str $elem-ns = $elem.namespaceURI;
+        my Str $elem-ns = $node.namespaceURI;
 
         if @desc > 1 {
             @desc = @desc.grep({ $elem-ns ~~ $^desc.ns });
@@ -1235,7 +1592,7 @@ class XMLSequence does Positional does Iterable {
                 LibXML::Class::X::Serialize::Impossible.new(
                     :type(self.WHAT),
                     :what($item),
-                    :why('the type is not registered with <' ~ $elem.localName ~ '>'));
+                    :why('the type is not registered with <' ~ $node.localName ~ '>'));
             return Nil;
         }
         elsif @desc > 1 {
@@ -1243,7 +1600,7 @@ class XMLSequence does Positional does Iterable {
                 LibXML::Class::X::Serialize::Impossible.new(
                     :type(self.WHAT),
                     :what($item),
-                    :why('too many declarations found for the type registered with <' ~ $elem.localName ~ '>'));
+                    :why('too many declarations found for the type registered with <' ~ $node.localName ~ '>'));
             return Nil
         }
 
@@ -1251,25 +1608,25 @@ class XMLSequence does Positional does Iterable {
 
         return $desc if $desc.xml-name;
 
-        # This object cannot carry objects of types not registered with specific XML names.
+        # This object cannot carry instances of types not registered with specific XML names.
         unless self.xml-seq-either-any {
             $xml-config.alert:
                 LibXML::Class::X::Serialize::Impossible.new(
                     :type(self.WHAT),
                     :what($item),
-                    :why('<' ~ $elem.localName ~ '> is not xml-any, but the type has no associated name'));
+                    :why('<' ~ $node.localName ~ '> is not xml-any, but the type has no associated name'));
             return Nil
         }
 
         # If the descriptor found doesn't have xml-name then it was a bare type registered with XML:any. We'd
         # need to pull the name with config's .ns-map.
-        my $ns = $desc.xml-guess-default-ns(:resolve($elem)) // $elem.namespaceURI // "";
+        my $ns = $desc.xml-guess-default-ns(:resolve($node)) // $node.namespaceURI // "";
         without my $ns-map = $xml-config.ns-map-type($item.WHAT, :$ns) {
             $xml-config.alert:
                 LibXML::Class::X::Serialize::Impossible.new(
                     :type(self.WHAT),
                     :what($item),
-                    :why("no XML name found in config's ns-map for sequential <" ~ $elem.localName ~ "> and namespace '$ns'"));
+                    :why("no XML name found in config's ns-map for sequential <" ~ $node.localName ~ "> and namespace '$ns'"));
             return Nil
         }
 
@@ -1284,23 +1641,23 @@ class XMLSequence does Positional does Iterable {
         self.xml-create-child-element($parent, $desc, |(:name($_) with $desc.xml-name), :$namespace, :$prefix)
     }
 
-    method xml-serialize-item(LibXML::Element:D $elem, LibXML::Class::ItemDescriptor:D $desc, Mu $value) {
-        my LibXML::Element:D $item-elem = self.xml-create-item-element($elem, $desc);
+    method xml-serialize-item(LibXML::Element:D $node, LibXML::Class::ItemDescriptor:D $desc, Mu $value) {
+        my LibXML::Element:D $item-elem = self.xml-create-item-element($node, $desc);
         my $*LIBXML-CLASS-ELEMENT = $item-elem;
         self.xml-ser-desc-val2elem($item-elem, $desc, $value);
         $item-elem
     }
 
-    method xml-to-element-seq(LibXML::Element:D $elem) {
+    method xml-to-element-seq(LibXML::Element:D $node) {
         my Iterator:D $iter = self.iterator;
         my $xml-config = $.xml-config;
         loop {
             last if (my Mu $item := $iter.pull-one) =:= IterationEnd;
 
-            my LibXML::Class::ItemDescriptor $desc = self!xml-ser-guess-descriptor($elem, $item);
+            my LibXML::Class::ItemDescriptor $desc = self!xml-ser-guess-descriptor($node, $item);
             with $desc {
                 my $*LIBXML-CLASS-DESCRIPTOR = $desc;
-                self.xml-serialize-item($elem, $desc, $item);
+                self.xml-serialize-item($node, $desc, $item);
             }
             else {
                 $xml-config.alert:
@@ -1313,11 +1670,11 @@ class XMLSequence does Positional does Iterable {
 
     method xml-deserialize-item( ::?CLASS:D:
                                  LibXML::Class::ItemDescriptor:D $desc,
-                                 LibXML::Element:D $elem,
+                                 LibXML::Element:D $node,
                                  UInt:D :$index,
                                  DeserializingCtx:D :$dctx = $*LIBXML-CLASS-CTX ) is raw
     {
-        self.xml-try-deserializer: $desc, $elem, :!coerce, {
+        self.xml-try-deserializer: $desc, $node, :!coerce, {
             # For whatever reason, deserializer hasn't produced a value. Do it the standard way then.
             my Mu $item-type := $desc.value-type;
 
@@ -1326,16 +1683,44 @@ class XMLSequence does Positional does Iterable {
                 my %*LIBXML-CLASS-NS-OVERRIDE = $desc.xml-namespaces;
                 my ($namespace, $prefix) =
                     $desc.infer-ns(:from(self), :default-ns($dctx.xml-default-ns), :default-pfx($dctx.xml-default-ns-pfx));
-                return $item-type.from-xml( $elem,
+                return $item-type.from-xml( $node,
                                         $.xml-document,
                                         :name($desc.xml-name),
                                         :$namespace,
                                         :$prefix,
                                         user-profile => $dctx.user-profile )
             }
-            self.xml-try-deserializer: $desc, ($_ ?? $elem.getAttribute($_) !! $elem.textContent)
+            self.xml-try-deserializer: $desc, ($_ ?? $node.getAttribute($_) !! $node.textContent)
                 given $desc.value-attr
         }
+    }
+
+    multi method xml-deserialize-element( ::?CLASS:D:
+                                          LibXML::Element:D $node,
+                                          LibXML::Class::ItemDescriptor:D $desc )
+    {
+        my $unique-key = $node.unique-key;
+        for ^ @!xml-seq-elems.elems -> $idx {
+            # Skip if an item is already deserialized. This is not our case and the document object should've found
+            # this item's registration already.
+            if @!xml-seq-elems.EXISTS-POS($idx) && @!xml-seq-elems.AT-POS($idx).unique-key eq $unique-key {
+                return self.AT-POS($idx);
+            }
+        }
+
+        nextwith($node, $desc, :no-match)
+    }
+    multi method xml-deserialize-element( ::?CLASS:D:
+                                          LibXML::Element:D $elem,
+                                          LibXML::Class::ItemDescriptor:D $desc,
+                                          Bool:D :$no-match! )
+    {
+        LibXML::Class::X::Sequence::ForeignElement.new(:type(self.WHAT), :$elem, :sequence($.xml-backing)).throw
+    }
+
+    multi method xml-deserialize-element(::?CLASS:D: LibXML::Element:D $node, LibXML::Class::Descriptor:D) {
+        # Redelegate to XMLObject
+        nextsame
     }
 
     method AT-POS(::?CLASS:D: $idx --> Mu) is raw {
@@ -1343,20 +1728,20 @@ class XMLSequence does Positional does Iterable {
         fail X::OutOfRange(:what<Index>, :got($idx), :range(0 .. self.end)) if $idx > self.end;
 
         # Item is not ready, deserialize corresponding element
-        my LibXML::Element:D $elem = @!xml-seq-elems[$idx];
+        my LibXML::Element:D $node = @!xml-seq-elems[$idx];
         without my LibXML::Class::ItemDescriptor $desc =
-                    self.xml-lazy-deserialize-context: { $*LIBXML-CLASS-CTX.desc-for-elem($elem) }
+                    self.xml-lazy-deserialize-context: { $*LIBXML-CLASS-CTX.desc-for-elem($node) }
         {
-            LibXML::Class::X::Deserialize::UnknownTag.new(:type(self.WHAT), :xml-name($elem.localName)).throw
+            LibXML::Class::X::Deserialize::UnknownTag.new(:type(self.WHAT), :xml-name($node.localName)).throw
         }
 
 
-        self.xml-lazy-deserialize-context: :$desc, {
+        self.xml-lazy-deserialize-context: {
             if !$desc && $!xml-is-any {
-                unless (my \item-type = $*LIBXML-CLASS-CONFIG.ns-map($elem)) =:= Nil {
+                unless (my \item-type = $*LIBXML-CLASS-CONFIG.ns-map($node)) =:= Nil {
                     # When succeed in mapping an element into a type for xml-any try to go back to the registry and locate
                     # a descriptor for the type.
-                    $desc = self!xml-ser-guess-descriptor($elem, item-type);
+                    $desc = self!xml-ser-guess-descriptor($node, item-type);
                 }
             }
 
@@ -1365,12 +1750,20 @@ class XMLSequence does Positional does Iterable {
                 # If there is no descriptor at this point it means there is a serious problem on our hands since the
                 # early processing should've filtered out any non-item elements.
                 LibXML::Class::X::AdHoc.new(
-                    message => "No type for sequential element <" ~ $elem.name ~ "> – how is it ever possible?").throw
+                    message => "No type for sequential element <" ~ $node.name ~ "> – how is it ever possible?").throw
             }
 
-            @!xml-seq-elems.DELETE-POS($idx);
+            KEEP {
+                @!xml-seq-elems.DELETE-POS($idx);
+                # Pickup any deserializations registed by complex structures like hashes.
+                for $*LIBXML-CLASS-CTX.take-out-deserializations -> (:key($node), :$value) {
+                    self.xml-add-deserialization($node, $value);
+                }
+            }
 
-            @!xml-items[$idx] := self.xml-deserialize-item($desc, $elem, :index($idx))
+            self.xml-add-deserialization:
+                $node,
+                @!xml-items[$idx] := self.xml-deserialize-item($desc, $node, :index($idx))
         }
     }
 

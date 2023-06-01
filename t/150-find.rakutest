@@ -1,0 +1,203 @@
+use v6.e.PREVIEW;
+use Test::Async;
+
+use LibXML::Element;
+use LibXML::Class;
+use LibXML::Class::Config :types;
+
+plan 1;
+
+sub is-element($elem, Str:D $localName, Str:D $message, *%attributes) is test-assertion {
+    subtest $message, :hidden, {
+        plan %attributes.elems + 2;
+        unless isa-ok($elem, LibXML::Element:D, "is an instance of LibXML::Element") {
+            skip "received object is not a concrete XML element", %attributes.elems + 1;
+            return Nil;
+        }
+        is $elem.localName, $localName, "element name";
+        for %attributes.kv -> $attr, $value {
+            with $value {
+                is $elem.getAttribute($attr), $value, "attribute '$attr' value";
+            }
+            else {
+                nok $elem.hasAttribute($attr), "no attribute '$attr'";
+            }
+        }
+    }
+    $elem
+}
+
+subtest "Find via containers" => {
+    plan 15;
+
+    my class Record is xml-element<record> {
+        has Int $.idx is xml-attribute;
+        has Str $.val is xml-element;
+    }
+    my class Root is xml-element<root> {
+        has Record:D $.rec1 is xml-element is required;
+        has Record:D $.rec2 is xml-element<r2> is required;
+        has Record:D $.rec3 is xml-element(:container) is required;
+        has Record:D $.rec4 is xml-element(:container<fourth-record>) is required;
+        has UInt:D $.count is xml-element(:container<size>) is required;
+        has Str:D $.descr is xml-element("description", :container<info>) is required;
+        has Record:D @.list1 is xml-element(:container);
+        has Record:D @.entry is xml-element(:container<Items>);
+        has Record:D @.list2 is xml-element('item', :container<LIST2>);
+    }
+
+    my $xml-source = $*PROGRAM.parent(1).IO.add('samples/containerized.xml').slurp(:close);
+    my $root = Root.from-xml: $xml-source, :config{ :severity(EASY) };
+
+    my $xml-root = $root.xml-document.libxml-document.documentElement;
+    # diag $xml-root.Str(:format);
+
+    is (my $elem-cands = $xml-root.findnodes(q«//*[@idx = 1001]»)).elems, 1, "only one element with idx=1001 found";
+
+    my $rec1001 = is-element $elem-cands.head, <record>, "element with idx=1001 is a <record>", :idx<1001>;
+
+    my $cont = is-element $rec1001.parent, <list1>, "<record> parent is a <list1> container";
+
+    subtest "First search over the container element", {
+        plan 3;
+        my $repr-cands = $root.xml-document.find-deserializations($cont);
+        is $repr-cands.elems, 1, "only one deserialization candidate found";
+        cmp-deeply $repr-cands.head, $root.list1, "found the excepted deserialization for the record 1001";
+
+        # Containers are unpacked as early as possible, before the values they wrap around are actually deserialized.
+        # As a result they are not registered on the document registry but locally on their owner objects only.
+        nok $root.xml-document.has-deserialization($cont), "containers do not have direct representation";
+    }
+
+    subtest "Repeated search over the same container element", {
+        plan 2;
+        my $repr-cands = $root.xml-document.find-deserializations($cont);
+        is $repr-cands.elems, 1, "repeated search still results in a single candidate";
+        cmp-deeply $repr-cands.head, $root.list1, "and it is still the same object";
+    }
+
+    subtest "Search for individual record within the container", {
+        plan 4;
+        my $rec-candidates = $root.xml-document.find-deserializations($rec1001);
+        is $rec-candidates.elems, 1, "found exactly one record";
+        cmp-deeply $rec-candidates.head, $root.list1[0], "record is the same as in the deserialized parent object";
+
+        ok $root.xml-document.has-deserialization($rec1001), "deserialization is registered with the document registry";
+        cmp-ok $root.xml-document.deserializations($rec1001).head, &[===], $root.list1[0],
+                "deserialization on the document is the one we expect";
+    }
+
+    subtest "Method 'find-deserializations' searches over multiple elements" => {
+        plan 4;
+
+        my $elem-cands = $xml-root.findnodes(q«//*[@idx > 2000 and @idx < 2100]»);
+        is $elem-cands.elems, 3, "all XML elements found";
+        cmp-deeply $elem-cands».getAttribute("idx"), ("2001", "2002", "2003"), "the correct XML elements found";
+
+        my $repr-cands = $root.xml-document.find-deserializations($elem-cands);
+        is $repr-cands.elems, 3, "all representations found";
+        is $repr-cands».idx, (2001, 2002, 2003), "the correct representations found";
+    }
+
+    subtest "Cloning of representation object" => {
+        plan 4;
+
+        # Get the record deserialization before .clone.
+        my $rec-cand1 = $root.xml-document.find-deserializations($rec1001).head;
+
+        my $rec-clone = $root.list1[0].clone;
+
+        is $rec-clone.idx, 1001, "cloned representation index attribute";
+
+        my $repr-cands = $root.xml-document.find-deserializations($rec1001).cache;
+
+        is $repr-cands.elems, 2, "we now find two representations of the record with idx=1001";
+
+        cmp-deeply $repr-cands.head, $rec-cand1, "the first of the two found representations matches the pre-clone record";
+
+        is (($root.list1[0].xml-id, $rec-clone.xml-id) ∩ ($repr-cands».xml-id)).elems, 2,
+            "found representations have the expected IDs";
+    }
+
+    # Reset the deserialized object so that all lazies are now unitialized again.
+    $root = Root.from-xml: $xml-source, :config{ :severity(EASY) };
+    $xml-root = $root.xml-document.libxml-document.documentElement;
+
+    $rec1001 = $xml-root.findnodes(q«//*[@idx = 1001]»).head;
+
+    # Try locating our record representation object again, but this time without pre-vivifying the entire array
+    # attribute first.
+    subtest "Find a member of an array attribute" => {
+        plan 3;
+        my $rec-candidates = $root.xml-document.find-deserializations($rec1001);
+        is $rec-candidates.elems, 1, "found exactly one record";
+        cmp-deeply $rec-candidates.head, $root.list1[0], "record is the same as in the deserialized parent object";
+        cmp-deeply $rec-candidates, $root.xml-findnodes(q«//*[@idx = 1001]»),
+            "xml-findnodes method is equivalent to findnodes + find-deserializations";
+    }
+
+    subtest "Finding a basic type XML-containerized attribute" => {
+        plan 4;
+
+        is (my $elem-cands = $xml-root.findnodes(q«//count»)).elems, 1, "exactly one XML element found";
+        is-element $elem-cands.head, 'count', "<size> container child";
+
+        my $repr-cands = $root.xml-document.find-deserializations($elem-cands);
+
+        is $repr-cands.elems, 1, "found exactly one candidate";
+        is $repr-cands.head, 4, "found the value";
+    }
+
+    subtest "Finding a basic type attribute by its XML container" => {
+        plan 4;
+
+        is (my $elem-cands = $xml-root.findnodes(q«//info»)).elems, 1, "exactly one XML element found";
+        is-element $elem-cands.head, 'info', "<info> container";
+
+        my $repr-cands = $root.xml-document.find-deserializations($elem-cands);
+
+        is $repr-cands.elems, 1, "found exactly one candidate";
+        is $repr-cands.head, 'Fictional structure', "found the value";
+    }
+
+    subtest "Search by XML attribute" => {
+        plan 4;
+
+        my $attr-cands = $xml-root.findnodes(q«//*[@idx = 3002]/@idx»);
+        is $attr-cands.elems, 1, "single XML attribute found";
+
+        my $repr-cands = $root.xml-document.find-deserializations($attr-cands);
+        is $repr-cands.elems, 1, "single representation found";
+        is $repr-cands.head, 3002, "representation value";
+        is $repr-cands.head, $root.list2[1].idx, "value matches the original object";
+    }
+
+    # Reset the deserialized object so that all lazies are now unitialized again.
+    $root = Root.from-xml: $xml-source, :config{ :severity(EASY) };
+    $xml-root = $root.xml-document.libxml-document.documentElement;
+
+    subtest "Search by a value XML element" => {
+        plan 3;
+        my $repr-cands = $root.xml-findnodes(q«//*[@idx = 3002]/val»);
+
+        is $repr-cands.elems, 1, "found just one representation";
+        is $repr-cands, ("record#3002",), "found the expected value";
+
+        # The document registry only contains xml-element objects.
+        nok $root.xml-document.has-deserialization($repr-cands.head), "value element is not registered on the document";
+    }
+
+    subtest "Find multiple attribute values from different records" => {
+        plan 2;
+        # This must find .val of both $root.rec1 and $root.rec2
+        my $repr-cands = $root.xml-findnodes(q«//val[contains(text(), 'rec#')]»);
+
+        is $repr-cands.elems, 2, "both values found";
+        is $repr-cands, ($root.rec1.val, $root.rec2.val), "values are up to our expectations";
+    }
+
+    throws-like
+        { $root.xml-findnodes(q«//trash»).eager },
+        LibXML::Class::X::Base, # TODO it currently throws NoDescriptor but it better be some specific X::Find-something
+        "searching for representation of an unsued XML element throws";
+}

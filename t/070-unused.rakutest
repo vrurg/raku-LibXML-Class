@@ -31,10 +31,7 @@ my $src-xml = q:to/XML-IN/;
     scope="global" max-something="42" min-something="12" p:foo="would make it nowhere">
   <something>12</something>
   <entry size="2" name="article-1" comment="dictionary entry #1">
-    <data>
-      <keyword>foo</keyword>
-      <text>whatever you like</text>
-    </data>
+    <data><keyword>foo</keyword><text>whatever you like</text></data>
   </entry>
   <e:meta comment="extras">
     <auth name="Та Хто Зна"/>
@@ -50,7 +47,8 @@ XML-IN
 my $deserialized = Root.from-xml: $src-xml, :config(severity => EASY);
 
 my LibXML::Document $doc .= parse: $deserialized.to-xml.Str;
-my $expected = :dict(["xmlns:e" => "http://elem.namespace", "xmlns:p" => "http://prop.namespace", :min-something("12"), "p:foo" => "would make it nowhere", :scope("global"), :max-something("42"), "\n  \n  \n  ", "e:meta" => [:comment("extras"), "\n    ", :auth([:name("Та Хто Зна")]), "\n    ", :where(["\n      ", :location([:address("Десь поза-обрієм")]), "\n      ", :from(["Is this gonna be used?"]), "\n    "]), "\n  "], "\nМаємо текст тут...\n", :v1(["ver-1"]), :v1(["ver-2"]), "... and more here", :v1(["ver-3"]), :something(["12"]), :entry([:size("2"), :name("article-1"), :comment("dictionary entry #1"), "\n    \n  ", :data([:keyword(["foo"]), :text(["\n    "])])]), :entry([:size("3"), :name("article-2"), :comment("another dictionary entry"), :data([:importance(["required"]), :keyword(["bar"]), :text(["you may not like it, but..."])])]), :idx(["s1"]), :idx(["s2"]), :idx(["s3"]), :idx(["s4"])]);
+
+my $expected = :dict(["xmlns:e" => "http://elem.namespace", "xmlns:p" => "http://prop.namespace", :min-something("12"), "p:foo" => "would make it nowhere", :scope("global"), :max-something("42"), "\n  \n  \n  ", "e:meta" => [:comment("extras"), "\n    ", :auth([:name("Та Хто Зна")]), "\n    ", :where(["\n      ", :location([:address("Десь поза-обрієм")]), "\n      ", :from(["Is this gonna be used?"]), "\n    "]), "\n  "], "\nМаємо текст тут...\n", :v1(["ver-1"]), :v1(["ver-2"]), "... and more here", :v1(["ver-3"]), :something(["12"]), :entry([:size("2"), :name("article-1"), :comment("dictionary entry #1"), "\n    \n  ", :data([:keyword(["foo"]), :text(["whatever you like"])])]), :entry([:size("3"), :name("article-2"), :comment("another dictionary entry"), :data([:importance(["required"]), :keyword(["bar"]), :text(["you may not like it, but..."])])]), :idx(["s1"]), :idx(["s2"]), :idx(["s3"]), :idx(["s4"])]);
 
 cmp-deeply $doc.documentElement.ast, $expected, "unused nodes are preserved";
 

@@ -39,6 +39,13 @@ has Bool:D $.eager = False;
 # Default for :derive of xml-element trait
 has Derive:D() $.derive .= new;
 
+# Wether to keep registry of deserialized XML nodes
+has Bool:D $.deserialization-registry = True;
+# If false then the document object wouldn't track all XMLObject instances. Normally it would speed up searches if set,
+# but the memory footprint might be bigger since every indexed object would stick around until the document itself
+# is demolished.
+has Bool:D $.global-index = True;
+
 # Namespace -> element name -> class
 has %!ns-map;
 
@@ -117,7 +124,9 @@ proto xmlize(|) {*}
 
 multi method xmlize(LibXML::Class::XML \obj, $) is pure { obj }
 
-multi method xmlize(Mu:U $what, LibXML::Class::XML:U $with, Str :$xml-name) is raw {
+# Typecheck for $with must be over LibXML::Class::XML. Unfortunately, due to a bug in rakudo (my fault!)
+# XMLRepresentation role doesn't typecheck against it. Therefore we stick to error-prone Mu:U.
+multi method xmlize(Mu:U $what, Mu:U $with, Str :$xml-name) is raw {
     return %xmlizations{$what} if %xmlizations{$what}:exists;
 
     unless $what.HOW ~~ Metamodel::ClassHOW {
@@ -142,7 +151,7 @@ multi method xmlize(Mu:U $what, LibXML::Class::XML:U $with, Str :$xml-name) is r
     xmlized
 }
 
-multi method xmlize(Mu:D $obj, LibXML::Class::XML:U $with, Str :$xml-name) {
+multi method xmlize(Mu:D $obj, Mu:U $with, Str :$xml-name) {
     ( %xmlizations{$obj.WHAT}:exists
         ?? %xmlizations{$obj.WHAT}
         !! samewith($obj.WHAT, $with, :$xml-name) ).clone-from($obj)

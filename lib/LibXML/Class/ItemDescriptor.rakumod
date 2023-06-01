@@ -34,3 +34,7 @@ method descriptor-kind {
 method value-type(--> Mu) { $!type }
 
 method config-derive is raw { $*LIBXML-CLASS-CONFIG andthen .derive.element }
+
+method gist {
+    self.descriptor-kind ~ " on " ~ $.declarant.^name
+}

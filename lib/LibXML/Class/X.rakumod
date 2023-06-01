@@ -2,9 +2,11 @@ use v6.e.PREVIEW;
 unit module LibXML::Class::X;
 
 use nqp;
+use LibXML::Attr;
+use LibXML::Document;
 use LibXML::Element;
 use LibXML::Node;
-use LibXML::Attr;
+use LibXML::Text;
 
 use LibXML::Class::Utils;
 
@@ -41,6 +43,13 @@ class TraitPosition does Base {
             ~ $!class.^name ~ " is "
             ~ $!trait ~ " ... does "
             ~ $!role.^name ~ " ... \{"
+    }
+}
+
+class NoDeserialization does Base {
+    has LibXML::Node:D $.node is required;
+    method message {
+        "No deserialization for node " ~ brief-node-str($!node)
     }
 }
 
@@ -130,10 +139,6 @@ my class Redeclaration::Type does Redeclaration {
 my class Redeclaration::Attribute does Redeclaration {
     has $.desc is required;
     method message {
-#        try {
-#            CATCH { default { note .message } }
-#            note "ATTR ", $.desc.kind;
-#        }
         "Attribute " ~ $.desc.name ~ " is already declared as an XML " ~ $.desc.kind
     }
 }
@@ -215,6 +220,17 @@ role Deserialize does Base {
     has Mu:U $.type is required;
 }
 
+my class Deserialize::NoBacking does Deserialize {
+    has Str:D $.what is required;
+    method message {
+        "Cannot " ~ $.what ~ " on an instance of " ~ $.type.^name ~ " because "
+            ~ ($.type ~~ LibXML::Document
+                ?? "it does't represent a LibXML document"
+                !! "there is no backing XML element" )
+            ~ ". The object is unlikely to be a product of deserialization."
+    }
+}
+
 my class Deserialize::BadValue does Deserialize {
     has Str:D $.value is required;
     method message {
@@ -282,14 +298,68 @@ my class Deserialize::Role does Deserialize {
     }
 }
 
-my class Deserialize::New does Deserialize {
+my class Deserialize::Constructor does Deserialize {
     has Exception:D $.exception is required;
     has LibXML::Element:D $.elem is required;
     method message {
         "An exception " ~ $!exception.^name ~ " occured while instantiating "
-        ~ $!type.^name ~ " from " ~ brief-elem-str($!elem) ~ ":\n"
+        ~ $!type.^name ~ " from " ~ brief-node-str($!elem) ~ ":\n"
         ~ ( (try { $!exception.message } // "*original exception message cannot be produced*")
             ~ (try { "\n" ~ $!exception.backtrace.Str } // "")).indent(4)
+    }
+}
+
+my class Deserialize::Node does Deserialize {
+    has LibXML::Node:D $.node is required;
+
+    method message-node($node = $!node) {
+        given $node {
+            when LibXML::Attr {
+                "attribute " ~ .name
+            }
+            when LibXML::Text {
+                "#text node " ~ $!node.data.raku
+            }
+            when LibXML::Element {
+                brief-node-str($_)
+            }
+            when LibXML::Document {
+                "document"
+            }
+        }
+    }
+}
+
+my class Deserialize::DuplicateKey is Deserialize::Node {
+    method message {
+        "Cannot register deserialized value for "
+            ~ self.message-node
+            ~ " on " ~ $.type.^name
+            ~ " because another value has been registered for it earlier"
+    }
+}
+
+my class Deserialize::NoCtx is Deserialize::Node {
+    method message {
+        "Deserialization of " ~ self.message-node
+        ~ " impossible, there is no deserialization context for an instance of " ~ $.type.^name ~ ": "
+        ~ ($.type.xml-class.^xml-is-lazy
+            ?? "looks like all lazies have been deserialized already"
+            !! "the type is not lazy"
+        )
+    }
+}
+
+my class Deserialize::NoDescriptor is Deserialize::Node {
+    method message {
+        "No descriptor for " ~ self.message-node ~ " while deserializing it for " ~ $.type.^name
+    }
+}
+
+my class Deserialize::ForeignNode is Deserialize::Node {
+    has LibXML::Node:D $.expected is required;
+    method message {
+        self.message-node($!expected).tc ~ " doesn't belong to " ~ $.type.^name ~ " " ~ self.message-node
     }
 }
 
@@ -384,17 +454,20 @@ my class Sequence::ChildType does Sequence {
     }
 }
 
-#my class Sequence::TagType does Sequence {
-#    has Mu $.tag is required;
-#    method message {
-#        "Object of type " ~ $!tag.^name ~ " cannot be used as a sequence tag name"
-#    }
-#}
-
 my class Sequence::NotAny does Sequence {
     has Str:D $.why is required;
     method message {
         "Sequence type " ~ $!type.^name ~ " is not xml:any, " ~ $.why
+    }
+}
+
+my class Sequence::ForeignElement does Sequence {
+    has LibXML::Element:D $.elem is required;
+    has LibXML::Element:D $.sequence is required;
+    method message {
+        "Element " ~ brief-node-str($!elem)
+            ~ " doesn't belong to " ~ $.type.^name
+            ~ " sequence " ~ brief-node-str($!sequence)
     }
 }
 

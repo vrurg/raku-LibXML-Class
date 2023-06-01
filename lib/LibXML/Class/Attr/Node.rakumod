@@ -1,6 +1,9 @@
 use v6.e.PREVIEW;
 unit role LibXML::Class::Attr::Node;
 
+use AttrX::Mooish;
+use AttrX::Mooish::Attribute;
+
 use LibXML::Class::Attr::XMLish;
 use LibXML::Class::Descriptor;
 use LibXML::Class::NS;
@@ -56,4 +59,17 @@ method compose-ns(::?CLASS:D: Mu :$from = Nil, Bool:D :$resolve = False, *%c) {
     }
 
     ($namespace, $prefix)
+}
+
+method gist {
+    self.descriptor-kind ~ " in " ~ $.declarant.^name
+}
+
+method lazify(Mu \obj) {
+    LibXML::Class::X::ReMooify.new(:$.attr, :type(obj.WHAT)).throw if $.attr ~~ AttrX::Mooish::Attribute;
+    my $xml-name = $.xml-name;
+    my $lazy = 'xml-deserialize-attr';
+    my $clearer = 'xml-clear-' ~ $xml-name;
+    my $predicate = 'xml-has-' ~ $xml-name;
+    &trait_mod:<is>($.attr, :mooish(:$lazy, :$clearer, :$predicate));
 }

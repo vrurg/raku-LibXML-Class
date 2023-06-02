@@ -95,10 +95,7 @@ my class DeserializingCtx does LibXML::Class::NS {
     # 2. default namespace
     # 3. a fallback found by resolving empty prefix
     method default-ns {
-        self.resolve-ns( $!xml-default-ns // .xml-default-ns,
-                         $!xml-default-ns-pfx // .xml-default-ns-pfx,
-                         $!xml-namespaces{""} // "" )
-            given $!into-xml-class.HOW
+        self.resolve-ns( $!xml-default-ns, $!xml-default-ns-pfx, $!xml-namespaces{""} // "" )
     }
 
     # Get what a namespace resolves into for a particular entity given that prefix weigh upon default namespace
@@ -141,7 +138,7 @@ my class DeserializingCtx does LibXML::Class::NS {
     method !add-attribute($attr, $name, %into is raw) {
         my ($namespace, $prefix) =
             $attr.compose-ns(
-                :from($!into-xml-class),
+                :from($!elem),
                 :default-ns($!xml-default-ns),
                 :default-pfx($!xml-default-ns-pfx) );
 
@@ -728,7 +725,7 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML {
                 # Make sure prefixes declared with this attribute xml-element are propagaded downstream.
                 my %*LIBXML-CLASS-NS-OVERRIDE = $desc.xml-namespaces;
                 %named<namespace prefix> =
-                    $desc.compose-ns(:from(self), :default-ns($dctx.xml-default-ns), :default-pfx($dctx.xml-default-ns-pfx));
+                    $desc.compose-ns(:from($dctx.elem), :default-ns($dctx.xml-default-ns), :default-pfx($dctx.xml-default-ns-pfx));
                 $value := $desc-type.from-xml($velem, $dctx.document, |%named)
             }
             else {
@@ -1201,8 +1198,10 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML {
         my \xml-class-how = self.xml-class.HOW;
         # When there is no explicit default namespaces we do fallback to the outer default. But not for the prefix
         # which is not inherited by a prefix-less XML entity from its parent.
-        $xml-default-ns //= xml-class-how.xml-default-ns // ($ctx-outer andthen .xml-default-ns orelse Nil);
-        $xml-default-ns-pfx //= xml-class-how.xml-default-ns-pfx;
+        without $xml-default-ns // $xml-default-ns-pfx {
+            $xml-default-ns = xml-class-how.xml-default-ns // ($ctx-outer andthen .xml-default-ns orelse Nil);
+            $xml-default-ns-pfx = xml-class-how.xml-default-ns-pfx;
+        }
 
         my $dctx =
             self.xml-new-dctx:

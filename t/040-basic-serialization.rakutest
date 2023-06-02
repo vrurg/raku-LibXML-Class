@@ -13,7 +13,7 @@ plan 2;
 
 for True, False -> $eager {
     subtest ($eager ?? "Eager" !! "Lazy"), {
-        plan 8;
+        plan 9;
 
         my sub is-two-way( \xml-object,
                            $expected-xml-ast,
@@ -78,6 +78,21 @@ for True, False -> $eager {
                     );
 
             my $expected = "#xml" => [:dict([:scope("global"), :max-something("42"), :something(["12"]), :entry([:size("2"), :name("article-1"), :comment("dictionary entry #1"), :data([:keyword(["foo"]), :text(["whatever you like"])])]), :entry([:size("3"), :name("article-2"), :comment("another dictionary entry"), :data([:importance(["required"]), :keyword(["bar"]), :text(["you may not like it, but..."])])]), :idx(["s1"]), :idx(["s2"]), :idx(["s3"]), :idx(["s4"])])];
+            is-two-way $root, $expected;
+        }
+
+        subtest "Implicit" => {
+
+            my class Record is xml-element {
+                has Str:D $.data is required;
+            }
+
+            my class Root is xml-element {
+                has Record:D $.record is required;
+            }
+
+            my $root = Root.new: record => Record.new(:data("some data"));
+            my $expected = "#xml" => [:Root([:record([:data("some data")])])];
             is-two-way $root, $expected;
         }
 
@@ -162,7 +177,7 @@ for True, False -> $eager {
             }
 
             my $expected = "#xml" => [:root([:rec1([:idx("1"), :val(["record#1"])]), :r2([:idx("2"), :val(["record#2"])]), :rec3([:record([:idx("3"), :val(["record#3"])])]), :fourth-record([:rec4([:idx("4"), :val(["record#4"])])]), :size([:count(["4"])]), :info([:description(["Fictional structure"])]), :list1([:record([:idx("1001"), :val(["record#1001"])]), :record([:idx("1002"), :val(["record#1002"])]), :record([:idx("1003"), :val(["record#1003"])]), :record([:idx("1004"), :val(["record#1004"])])]), :Items([:entry([:idx("2001"), :val(["record#2001"])]), :entry([:idx("2002"), :val(["record#2002"])]), :entry([:idx("2003"), :val(["record#2003"])])]), :LIST2([:item([:idx("3001"), :val(["record#3001"])]), :item([:idx("3002"), :val(["record#3002"])]), :item([:idx("3003"), :val(["record#3003"])])])])];
-            is-two-way $root, $expected, :dump;
+            is-two-way $root, $expected;
         }
 
         subtest "Containers and Namespaces" => {

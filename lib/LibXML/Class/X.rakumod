@@ -242,7 +242,7 @@ my class Deserialize::BadNode does Deserialize {
     has Str:D $.expected is required;
     has Str:D $.got is required;
     method message {
-        "Expected $.expected but got $.got"
+        "Expected $.expected but got $.got while deserializing " ~ $.type.^name
     }
 }
 

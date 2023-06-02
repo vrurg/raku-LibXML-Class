@@ -42,7 +42,7 @@ subtest "Namespacing" => {
         }
 
         cmp-deeply Default-NS.^xml-get-attr('$!attr').compose-ns,
-                   (TEST-NS1, ""),
+                   (TEST-NS1, Str),
                    "attribute derives from its class";
 
         my $default-ns = Default-NS.new(:xml-default-ns-pfx<foo>);
@@ -60,13 +60,13 @@ subtest "Namespacing" => {
         });
 
         cmp-deeply ns-role.^xml-get-attr('$!ns-attr').compose-ns,
-                   (TEST-NS2, ""),
+                   (TEST-NS2, Str),
                    "attribute derives from its role";
 
         my class NS-From-Prefix is xml-element( :ns(:foo) ) does Namespaced { }
 
         cmp-deeply NS-From-Prefix.^xml-get-attr('$!ns-attr').compose-ns,
-                   (TEST-NS2, ""),
+                   (TEST-NS2, Str),
                    "attribute derives from its role even when consumed by a class";
     }
 }

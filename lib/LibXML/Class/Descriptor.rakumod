@@ -89,7 +89,6 @@ method infer-ns( ::?CLASS:D:
                         given (typeobj.HOW ~~ LibXML::Class::NS ?? typeobj.HOW !! typeobj.xml-class.HOW);
                 }
             }
-            $prefix //= "";
         }
         else {
             if (my \ntype = self.nominal-type) ~~ LibXML::Class::NS && self.derive-from-type {

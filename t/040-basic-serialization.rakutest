@@ -13,13 +13,14 @@ plan 2;
 
 for True, False -> $eager {
     subtest ($eager ?? "Eager" !! "Lazy"), {
-        plan 9;
+        plan 10;
 
         my sub is-two-way( \xml-object,
                            $expected-xml-ast,
                            Str:D $message = "serialize, then deserialize",
                            Bool :$dump,
                            Bool :$format = False,
+                           Bool :$dump-ast,
                            :%config,
                            :%profile ) is test-assertion
         {
@@ -30,6 +31,7 @@ for True, False -> $eager {
                 cmp-deeply $serialized.ast, $expected-xml-ast, "serialized OK";
 
                 diag $serialized.Str(:$format) if $dump;
+                diag $serialized.ast.raku if $dump-ast;
 
                 my $deserialized = xml-object.WHAT.from-xml: $serialized.Str, :config(:$eager, |%config), |%profile;
                 cmp-deeply $deserialized, xml-object, "deserialized version is the same";
@@ -82,7 +84,7 @@ for True, False -> $eager {
         }
 
         subtest "Implicit" => {
-
+            plan 1;
             my class Record is xml-element {
                 has Str:D $.data is required;
             }
@@ -224,6 +226,38 @@ for True, False -> $eager {
             is-two-way $root, $expected, config => { :derive }, "with :derive";
         }
 
+        subtest "Imposing role" => {
+            plan 2;
+
+            my class Meta is xml-element {
+                has Str $.comment is xml-element;
+                has DateTime:D $.created is xml-element(:ns(""), :derive) is required;
+            }
+
+            my class Record is xml-element(<record>) {
+                has Int $.idx is xml-element;
+                has Str $.val is xml-element(:ns(:xstr));
+                has Meta $.meta is xml-element;
+            }
+
+            my role Recording is xml-element(:ns(:pfx, :xstr<http://strings.namespace>), :impose-ns) {
+                has Record:D $.rec is required;
+            }
+
+            my class Root is xml-element('root', :ns('http://root.namespace', :pfx<http://prefix.namespace>)) {
+                also does Recording;
+            }
+
+            my $meta = Meta.new(:comment("some extra info"), :created(DateTime.new('2023-05-05T18:00:00+0200')));
+            my $root = Root.new: rec => Record.new(:idx(42), :val('The Answer'), :$meta);
+
+            my $expected = "#xml" => [:root([:xmlns("http://root.namespace"), "xmlns:pfx" => "http://prefix.namespace", "xmlns:xstr" => "http://strings.namespace", "pfx:rec" => [:idx(["42"]), "xstr:val" => ["The Answer"], :meta([:comment(["some extra info"]), :created([:xmlns(""), "2023-05-05T18:00:00+02:00"])])]])];
+            is-two-way $root, $expected, "without :derive";
+
+            $expected = "#xml" => [:root([:xmlns("http://root.namespace"), "xmlns:pfx" => "http://prefix.namespace", "xmlns:xstr" => "http://strings.namespace", "pfx:rec" => ["pfx:idx" => ["42"], "xstr:val" => ["The Answer"], "pfx:meta" => ["pfx:comment" => ["some extra info"], :created([:xmlns(""), "2023-05-05T18:00:00+02:00"])]]])];
+            is-two-way $root, $expected, config => { :derive }, "with :derive";
+        }
+
         subtest "Serializer" => {
             plan 1;
 
@@ -313,42 +347,22 @@ for True, False -> $eager {
             my $root = Root.new(:data("foo"), :array(1e0, 2e0, "some more"), :perm-name(pi), :$header);
             my $expected = "#xml" => [:root([:xmlns("http://test1.namespace"), "xmlns:pfx" => "http://test3.namespace", :header([:xmlns("http://header.namespace"), "hdr:hr" => ["xmlns:hdr" => "http://header.namespace", :title("testing things"), "lorem ipsum, та інша беліберда"]]), :data([:string(["foo"])]), :perm-name([:float(["3.141592653589793e+00"])]), :array([:float(["1.0e+00"])]), :array([:float(["2.0e+00"])]), :array([:string(["some more"])])])];
             is-two-way $root, $expected, :%config, "all default namespaces";
-            # my $serialized = $root.to-xml(:$config);
-            # cmp-deeply $serialized.ast, $expected, "all default namespaces";
-            # my $deserialized = Root.from-xml: $serialized.Str, :$config;
-            # cmp-deeply $deserialized, $root, "deserialized all default namespaces";
 
             $root = Root.new(:data(Record.new(:id<id0>, :amount(42.12))), :array(1e0, 2e0, "some more"), :perm-name(pi));
             $expected = "#xml" => [:root([:xmlns("http://test1.namespace"), "xmlns:pfx" => "http://test3.namespace", :data([:record([:id("id0"), :amount("42.12")])]), :perm-name([:float(["3.141592653589793e+00"])]), :array([:float(["1.0e+00"])]), :array([:float(["2.0e+00"])]), :array([:string(["some more"])])])];
             is-two-way $root, $expected, :%config, "all default namespaces, with header";
-            # $serialized = $root.to-xml(:$config);
-            # cmp-deeply $serialized.ast, $expected, "all default namespaces, with header";
-            # $deserialized = Root.from-xml: $serialized.Str, :$config;
-            # cmp-deeply $deserialized, $root, "deserialized all default namespaces, with header";
 
             $root = Root.new(:data(Record.new(:id<id0>, :amount(42.12))), :array(1, 2, "some more"), :perm-name(pi), :xml-default-ns(TEST-NS2));
             $expected = "#xml" => [:root([:xmlns("http://test2.namespace"), "xmlns:pfx" => "http://test3.namespace", :data([:rec([:id("id0"), :amount("42.12")])]), :perm-name([:xmlns("http://test1.namespace"), :float(["3.141592653589793e+00"])]), :array([:size(["1"])]), :array([:size(["2"])]), :array([:text(["some more"])])])];
             is-two-way $root, $expected, :%config, profile => { :xml-default-ns(TEST-NS2) }, "default to the second test namespace";
-            # $serialized = $root.to-xml(:$config);
-            # cmp-deeply $serialized.ast, $expected, "default to the second test namespace";
-            # $deserialized = Root.from-xml: $serialized.Str, :$config, :xml-default-ns(TEST-NS2);
-            # cmp-deeply $deserialized, $root, "deserialized with default to the second test namespace";
 
             $root = Root.new(:data("foo"), :array(1, 2, "some more"), :perm-name(pi), :$header, :xml-default-ns(TEST-NS2));
             $expected = "#xml" => [:root([:xmlns("http://test2.namespace"), "xmlns:pfx" => "http://test3.namespace", :header([:xmlns("http://header.namespace"), "hdr:hr" => ["xmlns:hdr" => "http://header.namespace", :title("testing things"), "lorem ipsum, та інша беліберда"]]), :data([:text(["foo"])]), :perm-name([:xmlns("http://test1.namespace"), :float(["3.141592653589793e+00"])]), :array([:size(["1"])]), :array([:size(["2"])]), :array([:text(["some more"])])])];
             is-two-way $root, $expected, :%config, profile => { :namespace(TEST-NS2) }, "default to the second test namesapce, with header";
-            # $serialized = $root.to-xml(:$config);
-            # cmp-deeply $serialized.ast, $expected, "default to the second test namespace, with header";
-            # $deserialized = Root.from-xml: $serialized.Str, :$config, :namespace(TEST-NS2);
-            # cmp-deeply $deserialized, $root, "deserialized with default to the second test namespace, with header";
 
             $root = Root.new(:data("foo"), :array(1e1, 2, "some more"), :perm-name(pi), :xml-default-ns-pfx<pfx>);
             $expected = "#xml" => ["pfx:root" => ["xmlns:pfx" => "http://test3.namespace", :xmlns("http://test1.namespace"), "pfx:data" => ["pfx:comment" => ["foo"]], :perm-name([:float(["3.141592653589793e+00"])]), "pfx:array" => ["pfx:volume" => ["1.0e+01"]], "pfx:array" => ["pfx:volume" => ["2"]], "pfx:array" => ["pfx:comment" => ["some more"]]]];
             is-two-way $root, $expected, :%config, :profile{ :prefix<pfx> }, "default to the third test namespace via a prefix";
-            # $serialized = $root.to-xml(:$config);
-            # cmp-deeply $serialized.ast, $expected, "default to the third test namespace via a prefix";
-            # $deserialized = Root.from-xml: $serialized.Str, :$config, :prefix<pfx>;
-            # cmp-deeply $deserialized, $root, "deserialized with default the third test namespace via a prefix";
 
             $root = Root.new(:data(13), :array(1e0, 2e0, "some more"), :perm-name(pi));
             throws-like

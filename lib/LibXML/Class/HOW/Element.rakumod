@@ -66,10 +66,6 @@ method xml-compose-element(Mu \obj) {
         merge-in-namespaces(self.xml-namespaces, parent.HOW.xml-namespaces);
     }
 
-    unless self.xml-is-explicit(obj) {
-        self.xml-imply-attributes(obj);
-    }
-
     # self.xml-lazify-attributes(obj);
 }
 
@@ -85,6 +81,10 @@ method compose_attributes(Mu \obj, |) {
                 self.xml-attr-register(obj, $xml-attr.clone(:$attr));
             }
         }
+    }
+
+    unless self.xml-is-explicit(obj) {
+        self.xml-imply-attributes(obj);
     }
 
     self.xml-lazify-attributes(obj);

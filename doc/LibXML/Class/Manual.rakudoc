@@ -711,4 +711,13 @@ $refs.push: 987654;
 
 L<examples/manual8.raku>
 
+=head1 AUTHOR
+
+Vadim Belman <vrurg@cpan.org>
+
+=head1 LICENSE
+
+Artistic License 2.0
+
+See the LICENSE file in this distribution.
 =end pod

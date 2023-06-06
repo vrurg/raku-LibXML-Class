@@ -474,3 +474,15 @@ Here we define a sequence which can consist of integer or string items. Here is 
 
 [examples/manual8.raku](examples/manual8.raku)
 
+AUTHOR
+======
+
+Vadim Belman <vrurg@cpan.org>
+
+LICENSE
+=======
+
+Artistic License 2.0
+
+See the LICENSE file in this distribution.
+

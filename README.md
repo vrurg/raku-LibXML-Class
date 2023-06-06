@@ -148,5 +148,19 @@ SEE ALSO
 
   * More detailed code from synopsis can be found in *./examples/synopsis.raku* of this distribution.
 
+  * [The Manual](docs/md/LibXML/Class/Manual.md)
+
   * [`LibXML::Class`](docs/md/LibXML/Class.md)
+
+AUTHOR
+======
+
+Vadim Belman <vrurg@cpan.org>
+
+LICENSE
+=======
+
+Artistic License 2.0
+
+See the LICENSE file in this distribution.
 

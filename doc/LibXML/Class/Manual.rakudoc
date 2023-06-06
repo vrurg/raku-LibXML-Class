@@ -714,7 +714,7 @@ L<I<manual8.raku>|../../../../examples/manual8.raku>
 
 =head1 SEE ALSO
 
-=item L<../../../../README.md>
+=item L<README|../../../../README.md>
 =item L<C<LibXML::Class>|../Class.md>
 
 =head1 AUTHOR

@@ -69,7 +69,6 @@ method lazify(Mu \obj) {
     LibXML::Class::X::ReMooify.new(:$.attr, :type(obj.WHAT)).throw if $.attr ~~ AttrX::Mooish::Attribute;
     my $xml-name = $.xml-name;
     my $lazy = 'xml-deserialize-attr';
-    my $clearer = 'xml-clear-' ~ $xml-name;
     my $predicate = 'xml-has-' ~ $xml-name;
-    &trait_mod:<is>($.attr, :mooish(:$lazy, :$clearer, :$predicate));
+    &trait_mod:<is>($.attr, :mooish(:$lazy, :$predicate));
 }

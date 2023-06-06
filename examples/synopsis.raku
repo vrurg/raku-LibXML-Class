@@ -6,7 +6,6 @@ class Record2 is xml-element( :ns<http://my.namespace> ) {
     has Str:D $.description is required is xml-attribute;
     has Str $.comment is xml-element(:value-attr<text>, :ns( :extra ) );
     has Real:D $.amount is required is xml-element;
-    has DateTime $.when; # Not part of XML
 }
 
 class METAEntry is xml-element {
@@ -20,9 +19,12 @@ role META is xml-element {
 
 class Registry is xml-element('registry', :ns( :extra<http://additional.namespace> )) does META {
     has Record2 @.record is xml-element;
+    has DateTime $.when; # Not part of XML de-/serialization
 }
 
-my $root = Registry.new;
+my $when = DateTime.now;
+
+my $root = Registry.new: :$when;
 $root.record.append:
     Record2.new( :id(1001),
                  :description("item1"),
@@ -40,10 +42,12 @@ my $xml = $root.to-xml;
 
 diag $xml.Str(:format);
 
-my $root-copy = Registry.from-xml: $xml.Str;
+my $root-copy = Registry.from-xml: $xml.Str, :user-profile{ :$when };
+
 my $root-doc = $root-copy.xml-document;
 my $xml-root = $root-doc.libxml-document.documentElement;
 my $amount-elem = $xml-root[0][1];
+
 is $root-doc.find-deserializations($amount-elem), (42.12,), "first <amount> element value is 42.12";
 cmp-ok $root-doc.find-deserializations($xml-root[1]).head, '===', $root-copy.record[1], "second <record> element deserialization found";
 

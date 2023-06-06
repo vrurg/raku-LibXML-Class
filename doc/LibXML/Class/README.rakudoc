@@ -120,6 +120,7 @@ range of features to cover as many use cases as possible. The notable features a
 =item Search for deserialization of a paricular XML node, including XML attributes and C<#text> nodes
 =item Sequential XML elements (like arrays but lazily deserialized and allowing for different item types)
 =item Variative attribute types
+=item Preservation of unused XML nodes upon deserialization in order to save the original XML as much as possible
 
 Some of the features were inspired by C<XML::Class> module, but they were heavily reconsidered. Others are totally
 unique to C<LibXML::Class>. Of these special attention is to be paid to the search feature. Let's take the L<#SYNOPSIS>
@@ -138,10 +139,20 @@ These would add two more test outcomes indicating that the first call to C<find-
 in C<$.amount> attribute of the first item in C<@.record> on the C<Registry> class. And the second
 C<find-deserializations> call produces the second record on the array.
 
+=head1 DISCLAIMER
+
+L<C<LibXML::Class>|docs/md/LibXML/Class.md> is not capable of handling all possible variations of XML files. Despite all
+the efforts taken to cover as many possible cases as possible, mapping of Raku objects into XML is and likely will
+remain its primary purpose.
+
 =head1 SEE ALSO
 
+=begin item
 To get better accustomed with the kind of lazines used by C<LibXML::Class> it is recommended to refer to
 L<C<AttrX::Mooish>|https://modules.raku.org/dist/AttrX::Mooish> modules since it is used to back lazy deserialization of attributes.
+=end item
+
+=item More detailed code from synopsis can be found in I<./examples/synopsis.raku> of this distribution.
 
 =item L<C<LibXML::Class>|docs/md/LibXML/Class.md>
 

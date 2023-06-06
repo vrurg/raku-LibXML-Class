@@ -688,9 +688,10 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML does LibXML::Cl
                 if $desc-type =:= Nil {
                     my $ex = LibXML::Class::X::Deserialize::NoNSMap.new(:type(self.WHAT), :elem($velem));
                     $xml-config.alert: $ex;
-                    # Unless severity level is  STRICT then return a Failure. If that's ok with the user and their
-                    # destination container allows for it then that failure can be used by serialization to reproduce the
-                    # original element. Otherwise throwing due to failed typecheck would be a totally reasonable outcome.
+                    # Unless severity level is STRICT then return a Failure. If that's ok with the user and their
+                    # destination container allows it then that failure can be used by serialization to reproduce the
+                    # original element. Otherwise throwing due to failed typecheck would be a totally reasonable
+                    # outcome.
                     fail $ex
                 }
 

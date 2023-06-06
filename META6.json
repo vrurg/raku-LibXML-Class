@@ -1,6 +1,6 @@
 {
   "name": "LibXML::Class",
-  "description": "Serialize/de-serialize XML into Raku data structures",
+  "description": "General purpose XML de-/serialization for Raku",
   "version": "0.0.1",
   "authors": [
     "Vadim Belman"

@@ -167,17 +167,19 @@ multi sub mark-attr-xml( Attribute:D $attr,
 
 # Make sure only certain nameds are used with attribute traits.
 my proto sub no-extra-nameds(Mu, |) {*}
-multi sub no-extra-nameds(XMLValueElement \kind, :value-attr($), :any($), :container($), :ns($), :xml-name($), *%rest) {
+multi sub no-extra-nameds( XMLValueElement \kind, :attr(:value-attr($)), :any($),
+                           :container($), :ns($), :derive($), :xml-name($), *%rest )
+{
     nextwith(kind, |%rest)
 }
-multi sub no-extra-nameds(XMLAttribute \kind, :ns($), :xml-name($), *%rest) {
+multi sub no-extra-nameds(XMLAttribute \kind, :ns($), :derive($), :xml-name($), *%rest) {
     nextwith(kind, |%rest)
 }
 multi sub no-extra-nameds(XMLTextNode \kind, :trim($), *%rest) {
     nextwith(kind, |%rest)
 }
 multi sub no-extra-nameds( LibXML::Class::Attr::XMLish,
-                           :serializer($), :deserializer($), :lazy($), :derive($),
+                           :serializer($), :deserializer($), :lazy($),
                            *%rest )
 {
     if %rest {

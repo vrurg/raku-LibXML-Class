@@ -60,13 +60,31 @@ has LibXML::Config:D $.libxml-config is mooish(:lazy);
 
 my $singleton;
 
-method new(*%p) {
+method !fixup-profile(%p) {
     if %p<severity>:exists {
         with %p<severity> {
             $_ = SerializeSeverity::{$_} if $_ ~~ Stringy;
         }
     }
+}
+
+method new(*%p) {
+    self!fixup-profile(%p);
     self.bless(|%p)
+}
+
+method clone(*%twiddles) {
+    self!fixup-profile(%twiddles);
+    my $cloned = callwith(|%twiddles);
+    $cloned!clear-ns-map-types;
+    $cloned.post-clone(%twiddles);
+    $cloned
+}
+
+method post-clone(%twiddles) {
+    with %twiddles<ns-map> {
+        self.set-ns-map($_);
+    }
 }
 
 submethod TWEAK(:$ns-map) {

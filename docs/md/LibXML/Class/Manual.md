@@ -41,7 +41,7 @@ Consuming an `xml-element` role by a plain class turns it into a serializable ex
 
 Consuming such role by a `xml-element` class would simply extend it with role's functionality while allowing the role to maintain control over some serialization aspects like, for example, namespaces.
 
-See *explamples/manual2.raku* and *examples/manual3.raku*.
+See [*manual2.raku*](../../../../examples/manual2.raku) and [*manual3.raku*](../../../../examples/manual3.raku).
 
 API Naming
 ----------
@@ -254,7 +254,7 @@ There is a reson to use `:implicit` explicitly (no pun meant!) when declaring a 
         has Str $.bar is xml-element;
     }
 
-In this example both attributes would get serialized if set. But `$.foo` would become an XML attribute, and `$.bar` would be an XML element (see *examples/manual4.raku*):
+In this example both attributes would get serialized if set. But `$.foo` would become an XML attribute, and `$.bar` would be an XML element (see [*manual4.raku*](../../../../examples/manual4.raku)):
 
     <?xml version="1.0" encoding="UTF-8"?>
     <Foo foo="42">
@@ -359,7 +359,7 @@ Among other auxiliary values in the final profile we can find the context itself
 Custom Or Manual De-/Serialization
 ----------------------------------
 
-**NB** This section is illustrated by [examples/manual6.raku](examples/manual6.raku) code.
+**NB** This section is illustrated by [*manual6.raku*](../../../../examples/manual6.raku) code.
 
 It is possible to provide own routines to de-/serialize an attribute using the abovementioned `:serializer` and `:deserializer` arguments of traits. How to deal with them `LibXML::Class` determines based on their signatures.
 
@@ -369,7 +369,7 @@ A serializer routine can take a single or two arguments. When it's single then t
 
 When the signature accepts two arguments then the first one must accept a `LibXML::Element` instance, and the second one must accept the value. This is more complicated, yet more flexible approach where the serializer routine is expected to modify the XML element on its own.
 
-The case of two arguments has one more subcase when it comes to the value argument, not pertinent to the single-argument situation. For positional and associative Raku arguments it is possible that the entire attribute value would be sent out to the serializer for processing. In the [examples/manual6.raku](examples/manual6.raku) file there are two examples where this feature is used. Here is a cut-out from the example:
+The case of two arguments has one more subcase when it comes to the value argument, not pertinent to the single-argument situation. For positional and associative Raku arguments it is possible that the entire attribute value would be sent out to the serializer for processing. In the [*manual6.raku*](../../../../examples/manual6.raku) file there are two examples where this feature is used. Here is a cut-out from the example:
 
     multi sub serializer(LibXML::Element:D $elem, Real:D %r) {
         $elem.setAttribute:
@@ -399,7 +399,7 @@ Same rule apply to deserializer: no error if no candidate found.
 Implicit XMLization
 -------------------
 
-Look into *examples/manual5.raku*. There you'd find a very simple case where an `xml-element` class has an attribute of another class. That other class is not an `xml-element` and, yet, the example works and does what's expected! Well, at least it meets author's expectations.
+Look into [*manual5.raku*](../../../../examples/manual5.raku). There you'd find a very simple case where an `xml-element` class has an attribute of another class. That other class is not an `xml-element` and, yet, the example works and does what's expected! Well, at least it meets author's expectations.
 
 The "magic" behind the scenes is rahter simple. Whenever `LibXML::Class` encounters a class which is neither basic nor an `xml-element` it tries to implicitly turn the class into a `xml-element`-like one. The process is called "implicit XMLization" and it does the following:
 
@@ -464,7 +464,7 @@ Sequences are declared with help of `:sequence` named argument of `xml-element` 
         has Str:D $.title is required;
     }
 
-Here we define a sequence which can consist of integer or string items. Here is an example of using the sequence from [examples/manual7.raku](examples/manual7.raku):
+Here we define a sequence which can consist of integer or string items. Here is an example of using the sequence from [*manual7.raku*](../../../../examples/manual7.raku):
 
     my $refs = References.new: :title('An Article');
     $refs.push: 123456;
@@ -472,7 +472,7 @@ Here we define a sequence which can consist of integer or string items. Here is 
     $refs.push: "Another Article";
     $refs.push: 987654;
 
-[examples/manual8.raku](examples/manual8.raku)
+[*manual8.raku*](../../../../examples/manual8.raku)
 
 AUTHOR
 ======

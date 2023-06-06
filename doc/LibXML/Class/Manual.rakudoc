@@ -60,14 +60,14 @@ declarations below) class.
 Consuming such role by a C<xml-element> class would simply extend it with role's functionality while allowing the role
 to maintain control over some serialization aspects like, for example, namespaces.
 
-See I<explamples/manual2.raku> and I<examples/manual3.raku>.
+See L<I<manual2.raku>|../../../../examples/manual2.raku> and L<I<manual3.raku>|../../../../examples/manual3.raku>.
 
 =head2 API Naming
 
-The way L<C<LibXML::Class>|../Class.md> works in the above example is by adding a role to the type object C<xml-element> is used
-with. The role, in turn, adds a parent class C<LibXML::Class::XMLObject>. Normally these implementation details must
-not bother you, but they worth mentioning from the point of view that there is a lot of extra methods become available
-on the instances of C<xml-element> classes.
+The way L<C<LibXML::Class>|../Class.md> works in the above example is by adding a role to the type object C<xml-element>
+is used with. The role, in turn, adds a parent class C<LibXML::Class::XMLObject>. Normally these implementation details
+must not bother you, but they worth mentioning from the point of view that there is a lot of extra methods become
+available on the instances of C<xml-element> classes.
 
 In order to minimize possible conflicts or side effects, it's been taken into account that the XML standard prohibits
 node names starting with C<xml> prefix. Therefore almost every public or private method or attribute names, declared by
@@ -348,7 +348,8 @@ C<Foo> (if set to something defined, of course).
 
 Normally, there is no need to use C<:!implicit> as every time we mark an attribute with any of C<xml-element>,
 C<xml-attribute>, or C<xml-text> the type object is automatically gets its implicitness turned off. This is also what
-happens when an C<xml-element> role is consumed by a non-C<xml-element> class, as it was mentioned in L<Roles|https://modules.raku.org/dist/Roles>.
+happens when an C<xml-element> role is consumed by a non-C<xml-element> class, as it was mentioned in
+L<Roles|https://modules.raku.org/dist/Roles>.
 
 There is a reson to use C<:implicit> explicitly (no pun meant!) when declaring a type object. It makes sense if one
 wants all attributes to be auto-serialized except for few they want to give some special properties to:
@@ -361,7 +362,7 @@ class Foo is xml-element(:implicit) {
 =end code
 
 In this example both attributes would get serialized if set. But C<$.foo> would become an XML attribute, and C<$.bar>
-would be an XML element (see I<examples/manual4.raku>):
+would be an XML element (see L<I<manual4.raku>|../../../../examples/manual4.raku>):
 
 =begin output
 <?xml version="1.0" encoding="UTF-8"?>
@@ -534,7 +535,7 @@ the context is no more needed and is released for the garbage collector to wipe 
 
 =head2 Custom Or Manual De-/Serialization
 
-B<NB> This section is illustrated by L<examples/manual6.raku> code.
+B<NB> This section is illustrated by L<I<manual6.raku>|../../../../examples/manual6.raku> code.
 
 It is possible to provide own routines to de-/serialize an attribute using the abovementioned C<:serializer> and
 C<:deserializer> arguments of traits. How to deal with them C<LibXML::Class> determines based on their signatures.
@@ -551,8 +552,8 @@ to modify the XML element on its own.
 
 The case of two arguments has one more subcase when it comes to the value argument, not pertinent to the single-argument
 situation. For positional and associative Raku arguments it is possible that the entire attribute value would be sent
-out to the serializer for processing. In the L<examples/manual6.raku> file there are two examples where this feature is
-used. Here is a cut-out from the example:
+out to the serializer for processing. In the L<I<manual6.raku>|../../../../examples/manual6.raku> file there are two
+examples where this feature is used. Here is a cut-out from the example:
 
 =begin code
 multi sub serializer(LibXML::Element:D $elem, Real:D %r) {
@@ -592,9 +593,9 @@ Same rule apply to deserializer: no error if no candidate found.
 
 =head2 Implicit XMLization
 
-Look into I<examples/manual5.raku>. There you'd find a very simple case where an C<xml-element> class has an attribute
-of another class. That other class is not an C<xml-element> and, yet, the example works and does what's expected! Well,
-at least it meets author's expectations.
+Look into L<I<manual5.raku>|../../../../examples/manual5.raku>. There you'd find a very simple case where an
+C<xml-element> class has an attribute of another class. That other class is not an C<xml-element> and, yet, the example
+works and does what's expected! Well, at least it meets author's expectations.
 
 The "magic" behind the scenes is rahter simple. Whenever C<LibXML::Class> encounters a class which is neither basic nor
 an C<xml-element> it tries to implicitly turn the class into a C<xml-element>-like one. The process is called "implicit
@@ -699,7 +700,7 @@ class References is xml-element( :sequence( :idx(Int:D), :ref(Str:D, :attr<title
 =end code
 
 Here we define a sequence which can consist of integer or string items. Here is an example of using the sequence from
-L<examples/manual7.raku>:
+L<I<manual7.raku>|../../../../examples/manual7.raku>:
 
 =begin code
 my $refs = References.new: :title('An Article');
@@ -709,7 +710,7 @@ $refs.push: "Another Article";
 $refs.push: 987654;
 =end code
 
-L<examples/manual8.raku>
+L<I<manual8.raku>|../../../../examples/manual8.raku>
 
 =head1 AUTHOR
 

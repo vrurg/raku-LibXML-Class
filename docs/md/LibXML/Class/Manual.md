@@ -474,6 +474,13 @@ Here we define a sequence which can consist of integer or string items. Here is 
 
 [*manual8.raku*](../../../../examples/manual8.raku)
 
+SEE ALSO
+========
+
+  * [../../../../README.md](../../../../README.md)
+
+  * [`LibXML::Class`](../Class.md)
+
 AUTHOR
 ======
 

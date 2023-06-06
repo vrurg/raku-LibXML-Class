@@ -712,6 +712,11 @@ $refs.push: 987654;
 
 L<I<manual8.raku>|../../../../examples/manual8.raku>
 
+=head1 SEE ALSO
+
+=item L<../../../../README.md>
+=item L<C<LibXML::Class>|../Class.md>
+
 =head1 AUTHOR
 
 Vadim Belman <vrurg@cpan.org>

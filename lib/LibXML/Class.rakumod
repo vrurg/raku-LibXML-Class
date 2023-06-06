@@ -1083,17 +1083,22 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML does LibXML::Cl
                 ?? self.xml-create-child-element($node, $desc, :name($desc.container-name), :$namespace, :$prefix)
                 !! $node;
 
-        for attr-values<> -> $avalue {
-            my $velem =
-                self.xml-create-child-element($celem, $desc, :name($desc.value-name($avalue)), :$namespace, :$prefix);
-            self.xml-ser-attr-val2elem: $velem, $desc, $avalue;
+        if ($desc.serializer andthen .cando($celem, attr-values)) {
+            $desc.serializer.($celem, attr-values);
+        }
+        else {
+            for attr-values<> -> $avalue {
+                my $velem =
+                    self.xml-create-child-element($celem, $desc, :name($desc.value-name($avalue)), :$namespace, :$prefix);
+                self.xml-ser-attr-val2elem: $velem, $desc, $avalue;
+            }
         }
     }
 
     multi method xml-serialize-attr(LibXML::Element:D $node, LibXML::Class::Attr::XMLAssociative:D $desc) {
-        my %attr-values = $desc.get_value(self);
+        my \attr-values = $desc.get_value(self);
 
-        return unless %attr-values;
+        return unless attr-values;
 
         my $document = $node.ownerDocument;
 
@@ -1102,10 +1107,15 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML does LibXML::Cl
 
         $desc.xml-apply-ns($celem, :$namespace, :$prefix);
 
-        for %attr-values.sort -> (:key($vname), :$value) {
-            my LibXML::Element:D $velem =
-                self.xml-create-child-element($celem, $desc, :name($vname), :$namespace, :$prefix);
-            self.xml-ser-attr-val2elem: $velem, $desc, $value;
+        if ($desc.serializer andthen .cando($celem, attr-values)) {
+            $desc.serializer.($celem, attr-values);
+        }
+        else {
+            for attr-values.sort -> (:key($vname), :$value) {
+                my LibXML::Element:D $velem =
+                    self.xml-create-child-element($celem, $desc, :name($vname), :$namespace, :$prefix);
+                self.xml-ser-attr-val2elem: $velem, $desc, $value;
+            }
         }
     }
 

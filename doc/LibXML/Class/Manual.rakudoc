@@ -47,7 +47,7 @@ class Root {
 }
 =end code
 
-See C<manual1.raku> in I<examples> directory.
+See L<I<manual1.raku>|../../../../examples/manual1.raku> in the L<I<examples>|../../../../examples> directory.
 
 =head3 Roles
 

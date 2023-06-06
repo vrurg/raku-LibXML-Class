@@ -31,7 +31,7 @@ In a slightly more complex case an attribute of a class can store an instance of
         has Record:D $.record is required;
     }
 
-See `manual1.raku` in *examples* directory.
+See [*manual1.raku*](../../../../examples/manual1.raku) in the [*examples*](../../../../examples) directory.
 
 ### Roles
 

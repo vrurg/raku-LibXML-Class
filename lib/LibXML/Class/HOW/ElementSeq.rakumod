@@ -75,9 +75,9 @@ method xml-build-from-mro(Mu \obj) {
             # # note "? 1b. ", %type2desc.raku;
             # # note "? ON ", obj.^name, " for ", $desc.type.^name, ": ", %type2desc{$desc.type}.WHICH;
             # %type2desc{$desc.type.WHAT}.push: $desc;
-            %type2desc.append: ($desc.type.WHAT) => $desc;
+            %type2desc.append: ($desc.nominal-type.WHAT) => $desc;
             @all-desc.push: $desc;
-            @child-types.push: $desc.type;
+            @child-types.push: $desc.nominal-type;
             # note "? 2. ", %type2desc.raku;
         }
 

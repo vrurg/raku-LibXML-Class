@@ -1947,7 +1947,7 @@ BEGIN {
                                   Bool :$lazy,
                                   :$derive,
                                   Bool :$impose-ns,
-                                  :$ns is raw,
+                                  :namespace(:$ns) is raw,
                                  *%named )
     {
         no-extra-nameds(%named);
@@ -2009,7 +2009,7 @@ BEGIN {
                                   Bool :$implicit,
                                   Bool :$impose-ns,
                                   Bool :$lazy,
-                                  :$ns,
+                                  :namespace(:$ns),
                                   :$sequence,
                                   Mu :$any = NOT-SET,
                                   *%named )

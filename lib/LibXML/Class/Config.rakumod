@@ -13,6 +13,8 @@ use LibXML::Class::Types;
 use LibXML::Class::X;
 use LibXML::Class::XML;
 
+also does LibXML::Class::Types::CloneFrom;
+
 enum SerializeSeverity is export(:types) <EASY WARN STRICT>;
 
 class NSMapType {

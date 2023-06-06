@@ -3,6 +3,16 @@ unit module LibXML::Class::Types;
 
 role IsImplicitValue {}
 
+role CloneFrom {
+    method clone-from(Mu:D $obj, *%twiddles) {
+        my %profile;
+        for $obj.^attributes(:!local).grep({ .has_accessor || .is_built }) -> Attribute:D $attr {
+            %profile{$attr.name.substr(2)} := $attr.get_value($obj);
+        }
+        self.new: |%profile, |%twiddles
+    }
+}
+
 class NOT-SET is Nil is export(:NOT-SET) {
     method Bool { False }
 }

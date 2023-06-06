@@ -307,7 +307,7 @@ my class DeserializingCtx does LibXML::Class::NS {
     }
 }
 
-class XMLObject does LibXML::Class::Node does LibXML::Class::XML {
+class XMLObject does LibXML::Class::Node does LibXML::Class::XML does LibXML::Class::Types::CloneFrom {
     has Int:D $!xml-id = LibXML::Class::Utils::next-id;
 
     # Collection of AST nodes representing XML entities which do not have mapping into our class
@@ -370,14 +370,6 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML {
 
     method !MAYBE-REGISTER-ON-DOCUMENT {
         $!xml-document.add-deserialization(self) with $!xml-unique-key;
-    }
-
-    method clone-from(Mu:D $obj) {
-        my %profile;
-        for $obj.^attributes(:!local).grep({ .has_accessor || .is_built }) -> Attribute:D $attr {
-            %profile{$attr.name.substr(2)} := $attr.get_value($obj);
-        }
-        self.new: |%profile
     }
 
     method clone(::?CLASS:D: *%twiddles) is raw {
@@ -1254,7 +1246,10 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML {
                 ?? CALLERS::<$*LIBXML-CLASS-CONFIG>
                 !! ($document andthen .config))
             andthen (%config || %twiddles ?? .clone(|%config, |%twiddles) !! $_)
-            orelse LibXML::Class::Config.new(|self.xml-config-defaults, |%config, |%twiddles));
+            orelse LibXML::Class::Config.clone-from( LibXML::Class::Config.global,
+                                                     |self.xml-config-defaults,
+                                                     |%config,
+                                                     |%twiddles ));
 
         my $*LIBXML-CLASS-CONFIG = $config;
 

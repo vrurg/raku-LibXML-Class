@@ -346,11 +346,11 @@ for True, False -> $eager {
 
             my $root = Root.new(:data("foo"), :array(1e0, 2e0, "some more"), :perm-name(pi), :$header);
             my $expected = "#xml" => [:root([:xmlns("http://test1.namespace"), "xmlns:pfx" => "http://test3.namespace", :header([:xmlns("http://header.namespace"), "hdr:hr" => ["xmlns:hdr" => "http://header.namespace", :title("testing things"), "lorem ipsum, та інша беліберда"]]), :data([:string(["foo"])]), :perm-name([:float(["3.141592653589793e+00"])]), :array([:float(["1.0e+00"])]), :array([:float(["2.0e+00"])]), :array([:string(["some more"])])])];
-            is-two-way $root, $expected, :%config, "all default namespaces";
+            is-two-way $root, $expected, :%config, "all default namespaces, with header";
 
             $root = Root.new(:data(Record.new(:id<id0>, :amount(42.12))), :array(1e0, 2e0, "some more"), :perm-name(pi));
             $expected = "#xml" => [:root([:xmlns("http://test1.namespace"), "xmlns:pfx" => "http://test3.namespace", :data([:record([:id("id0"), :amount("42.12")])]), :perm-name([:float(["3.141592653589793e+00"])]), :array([:float(["1.0e+00"])]), :array([:float(["2.0e+00"])]), :array([:string(["some more"])])])];
-            is-two-way $root, $expected, :%config, "all default namespaces, with header";
+            is-two-way $root, $expected, :%config, "all default namespaces, without header";
 
             $root = Root.new(:data(Record.new(:id<id0>, :amount(42.12))), :array(1, 2, "some more"), :perm-name(pi), :xml-default-ns(TEST-NS2));
             $expected = "#xml" => [:root([:xmlns("http://test2.namespace"), "xmlns:pfx" => "http://test3.namespace", :data([:rec([:id("id0"), :amount("42.12")])]), :perm-name([:xmlns("http://test1.namespace"), :float(["3.141592653589793e+00"])]), :array([:size(["1"])]), :array([:size(["2"])]), :array([:text(["some more"])])])];

@@ -1449,7 +1449,7 @@ our role XMLRepresentation is XMLObject {
             given $node {
                 when LibXML::Element {
                     with $dctx.desc-for-elem($node) -> LibXML::Class::Attr::XMLish:D $attr {
-                        my $value-elems := self.xml-decontainerize($node, $attr, :trim);
+                        my $value-elems := self.xml-decontainerize($node, $attr, :trim).cache;
 
                         # Validate xml:any by making sure the number of XML elements matches attribute declaration.
                         if $attr.is-any {

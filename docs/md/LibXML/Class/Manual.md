@@ -31,7 +31,7 @@ In a slightly more complex case an attribute of a class can store an instance of
         has Record:D $.record is required;
     }
 
-See [*manual1.raku*](../../../../examples/manual1.raku) in the [*examples*](../../../../examples) directory.
+See [*manual01.raku*](../../../../examples/manual01.raku) in the [*examples*](../../../../examples) directory.
 
 ### Roles
 
@@ -41,7 +41,7 @@ Consuming an `xml-element` role by a plain class turns it into a serializable ex
 
 Consuming such role by a `xml-element` class would simply extend it with role's functionality while allowing the role to maintain control over some serialization aspects like, for example, namespaces.
 
-See [*manual2.raku*](../../../../examples/manual2.raku) and [*manual3.raku*](../../../../examples/manual3.raku).
+See [*manual02.raku*](../../../../examples/manual02.raku) and [*manual03.raku*](../../../../examples/manual03.raku).
 
 API Naming
 ----------
@@ -118,7 +118,7 @@ For example:
     # <Record attr="something">line1
     # line2</Record>
 
-Both `xml-element` and `xml-attribute` share similar signatures: `<trait>(Str:D $name?, *%named)` – where `$name` is element/attribute name to be used. If omitted then see the section [Naming Conventions](Naming Conventions) below. The allowed named arguments vary depending on the context and object a trait is applied to.
+Both `xml-element` and `xml-attribute` share similar signatures: `<trait>(Str:D $name?, *%named)` – where `$name` is element/attribute name to be used. If omitted then see the section [XML Nodes Naming Conventions](XML Nodes Naming Conventions) below. The allowed named arguments vary depending on the context and object a trait is applied to.
 
 `xml-text` doesn't take any positional argument but also shares a few named ones with the other two traits.
 
@@ -156,7 +156,7 @@ When `xml-element` is used with a class or a role the following named arguments 
 
   * `:implicit`
 
-    A boolean specifying if typeobject arguments are to be implicitly serialized. Can be negated. See the section [Implicit Or Explicit](Implicit Or Explicit).
+    A boolean specifying if typeobject arguments are to be implicitly serialized. Can be negated. See the section [Implicit Or Explicit Declarations](Implicit Or Explicit Declarations).
 
   * `:lazy`
 
@@ -164,11 +164,11 @@ When `xml-element` is used with a class or a role the following named arguments 
 
   * `:ns`
 
-    This argument is in charge of XML namespaces. See the section [Namespaces](https://modules.raku.org/dist/Namespaces).
+    This argument is in charge of XML namespaces. See the section [Namespaces](#Namespaces).
 
   * `:impose-ns`
 
-    If this boolean is *True* then any attribute not having its own `:ns` argument would use namespaces of its parent typeobject serialization. See the section [Namespaces](https://modules.raku.org/dist/Namespaces).
+    If this boolean is *True* then any attribute not having its own `:ns` argument would use namespaces of its parent typeobject serialization. See the section [Namespaces](#Namespaces).
 
   * `:sequence`
 
@@ -182,7 +182,7 @@ When `xml-element` is used with a class more named arguments become available:
 
   * `:derive`
 
-    Turns on or off attribute namespace deriving mode. See the section [Namespaces](https://modules.raku.org/dist/Namespaces).
+    Turns on or off attribute namespace deriving mode. See the section [Namespaces](#Namespaces).
 
   * `:severity`
 
@@ -202,9 +202,9 @@ All three attribute traits: `xml-element`, `xml-attribute`, and `xml-text` – s
 
 The following arguments are shared by `xml-element` and `xml-attribute`:
 
-  * `:ns(...)`
+  * `:ns(...)`, `:ns`
 
-    This argument defines what namespaces are to used with XML node serialized from the attribute. See the [Namespacing](https://modules.raku.org/dist/Namespacing) section.
+    This argument defines what namespaces are to used with XML node serialized from the attribute. See the [Namespaces](#Namespaces) section.
 
   * `:derive`
 
@@ -245,7 +245,7 @@ Neither `$.foo` nor `$.bar` would not be serialized into XML. But:
 
 Here we would still miss the `$.foo` attribute, though a value in `$.bar` would end up in an XML representation of `Foo` (if set to something defined, of course).
 
-Normally, there is no need to use `:!implicit` as every time we mark an attribute with any of `xml-element`, `xml-attribute`, or `xml-text` the type object is automatically gets its implicitness turned off. This is also what happens when an `xml-element` role is consumed by a non-`xml-element` class, as it was mentioned in [Roles](https://modules.raku.org/dist/Roles).
+Normally, there is no need to use `:!implicit` as every time we mark an attribute with any of `xml-element`, `xml-attribute`, or `xml-text` the type object is automatically gets its implicitness turned off. This is also what happens when an `xml-element` role is consumed by a non-`xml-element` class, as it was mentioned in [Roles](#Roles).
 
 There is a reson to use `:implicit` explicitly (no pun meant!) when declaring a type object. It makes sense if one wants all attributes to be auto-serialized except for few they want to give some special properties to:
 
@@ -254,7 +254,7 @@ There is a reson to use `:implicit` explicitly (no pun meant!) when declaring a 
         has Str $.bar is xml-element;
     }
 
-In this example both attributes would get serialized if set. But `$.foo` would become an XML attribute, and `$.bar` would be an XML element (see [*manual4.raku*](../../../../examples/manual4.raku)):
+In this example both attributes would get serialized if set. But `$.foo` would become an XML attribute, and `$.bar` would be an XML element (see [*manual04.raku*](../../../../examples/manual04.raku)):
 
     <?xml version="1.0" encoding="UTF-8"?>
     <Foo foo="42">
@@ -359,7 +359,7 @@ Among other auxiliary values in the final profile we can find the context itself
 Custom Or Manual De-/Serialization
 ----------------------------------
 
-**NB** This section is illustrated by [*manual6.raku*](../../../../examples/manual6.raku) code.
+**NB** This section is illustrated by [*manual06.raku*](../../../../examples/manual06.raku) code.
 
 It is possible to provide own routines to de-/serialize an attribute using the abovementioned `:serializer` and `:deserializer` arguments of traits. How to deal with them `LibXML::Class` determines based on their signatures.
 
@@ -369,7 +369,7 @@ A serializer routine can take a single or two arguments. When it's single then t
 
 When the signature accepts two arguments then the first one must accept a `LibXML::Element` instance, and the second one must accept the value. This is more complicated, yet more flexible approach where the serializer routine is expected to modify the XML element on its own.
 
-The case of two arguments has one more subcase when it comes to the value argument, not pertinent to the single-argument situation. For positional and associative Raku arguments it is possible that the entire attribute value would be sent out to the serializer for processing. In the [*manual6.raku*](../../../../examples/manual6.raku) file there are two examples where this feature is used. Here is a cut-out from the example:
+The case of two arguments has one more subcase when it comes to the value argument, not pertinent to the single-argument situation. For positional and associative Raku arguments it is possible that the entire attribute value would be sent out to the serializer for processing. In the [*manual06.raku*](../../../../examples/manual06.raku) file there are two examples where this feature is used. Here is a cut-out from the example:
 
     multi sub serializer(LibXML::Element:D $elem, Real:D %r) {
         $elem.setAttribute:
@@ -399,7 +399,7 @@ Same rule apply to deserializer: no error if no candidate found.
 Implicit XMLization
 -------------------
 
-Look into [*manual5.raku*](../../../../examples/manual5.raku). There you'd find a very simple case where an `xml-element` class has an attribute of another class. That other class is not an `xml-element` and, yet, the example works and does what's expected! Well, at least it meets author's expectations.
+Look into [*manual05.raku*](../../../../examples/manual05.raku). There you'd find a very simple case where an `xml-element` class has an attribute of another class. That other class is not an `xml-element` and, yet, the example works and does what's expected! Well, at least it meets author's expectations.
 
 The "magic" behind the scenes is rahter simple. Whenever `LibXML::Class` encounters a class which is neither basic nor an `xml-element` it tries to implicitly turn the class into a `xml-element`-like one. The process is called "implicit XMLization" and it does the following:
 
@@ -431,6 +431,124 @@ But if the boolean form of the argument is used, i.e. containerization is turned
 XML:any
 -------
 
+Sometimes it is not possible to tell what would be a value type beforehand. Like, OK, we know that `has Record $.rec;` tells us that we'd need to de-/serialize `Record`. But what if `Record` is a role? Or, worse, if `$.rec` doesn't have a type constraint whatsoever? There is no big deal when we serialize as we just fetch a value, making sure we know how to handle it – and do handle, eventually, producing an XML element. But deserializing would get into a problem here as there is no legal and safe way to tell that a string maps into `Record`, `Foo`, or, damn it, plain old [`Str`](https://docs.raku.org/type/Str)!
+
+XML:any tries to solve this problem by implementing a mapping between Raku type objects and XML tags, using namespaces. Before going into greater details, let's borrow an example from [`XML::Class`](https://modules.raku.org/dist/XML::Class), where they use SOAP envelope to demonstrate the problem and its solutions:
+
+    <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
+        <Head/>
+        <Body>
+            <Data xmlns="urn:my-data">
+                <Something>some data</Something>
+            </Data>
+        </Body>
+    </Envelope>
+
+This structure is supposed to map into the following class (traits stripped):
+
+    class Envelope {
+        has $.Head;
+        has $.Body;
+    }
+
+Clearly, neither `Head` nor `Body` have types associated to them. More importantly, we see that the `<Body>` element of our XML is not a container – it is the attribute. But the value of it is contained by `<Data>`.
+
+What if `<Body>` is a sequence? Then it is possible to see something like the following:
+
+    <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
+        <Head/>
+        <Body>
+            <Data xmlns="urn:my-data">
+                <Something>some data</Something>
+            </Data>
+            <Data xmlns="http://another.namespace" attr1="for $.attr1">
+                <attr2>123.456</attr2>
+            </Data>
+        </Body>
+    </Envelope>
+
+Now we have at least two `<Data>` elements with different structure *and* different namespaces. This fact we can use because this is what makes XML:any possible.
+
+First of all, we start with defining a map of namespaces, XML element names, and types on our configuration (more detailed illustation can be found in [*manual09.raku*](../../../../examples/manual09.raku)):
+
+    my LibXML::Class::Config $config .= new: ns-map => %( #`{ ns-map declarations go here } );
+
+    $root.to-xml: config => {
+        ns-map => %( ... ),
+    };
+
+Both of the above cases wind down to calling `set-ns-map` method:
+
+    my LibXML::Class::Config $config .= new;
+    $config.set-ns-map: #`{ ns-map definitions };
+
+The method has many candidates allowing for multiple use scenarios.
+
+The most basic `ns-map` declaration would be a hash of hashes:
+
+    ns-map => {
+        "my-ns" => {
+            "foo" => Foo,
+        }
+    }
+
+With this declaration we tell the module that `<foo namespace="my-ns" .../>`, or `<pfx:foo xmlns:pfx="my-ns" ... />` elements are to be deserialized as `Foo`. Other way around, for:
+
+    class Record is xml-element( :ns( :pfx<my-ns> ) ) {
+        has $.attr is xml-element( :ns ); # The attribute is forced to use namespaces of its declarant class
+    }
+
+whenever the value in `$.attr` happens to be an instance of `Foo`, the attribute would serialize into something like:
+
+    <pfx:attr><pfx:foo /></pfx:attr>
+
+Hopefully, this example is understandable, even though namespaces are to be discussed later. In the meantime it worth pointing out at the fact that their use allows us to distinguis even same-named elements if they belong to into different namespaces. If we get back to the SOAP envelope example, having two `Data` elements is as simple as having this `ns-map`:
+
+    ns-map => {
+        "urn:my-data" => {
+            :Data(MyData),
+        },
+        "http://another.namespace" => {
+            :Data(AnotherData),
+        }
+    }
+
+Note that `ns-map` is a "globalish" thing, i.e. it's scope is the same as the scope of configuraiton class which has it. It means that the same mapping would likely to be used for different attributes in different type objects. If this is a problem then best solution for it would be to type-constraint an attribute. My guess would be that in the most typical situation allowed types for an XML:any attribute would share some common property, like a role they consume, or a class they inherit from:
+
+    role EnvData { }
+    class EnvData1 does EnvData { }
+    class EnvData2 does EnvData { }
+
+    $config.set-ns-map:
+        "ns1" => { :Data(EnvData1) },
+        "ns2" => { :Data(EnvData2) };
+
+    class Envelope is xml-element {
+        has EnvData $.Data is xml-element( :any );
+    }
+
+This is, basically, all about XML:any attributes. There is more information about XML sequence items, but it fits the [XML Sequence Objects](XML Sequence Objects) section better.
+
+### `ns-map` Variations
+
+Declaring `ns-map` as a hash is the most basic but also the most limited way. There are shortcuts possible.
+
+For example, an `xml-element` class can be used as-is since we can pull out all necessary information directly out of it. This works with a [`List`](https://docs.raku.org/type/List) representation of `ns-map`:
+
+    class Record is xml-element(<rec>, :ns( 'my-ns' )) { ... }
+
+    my LibXML::Class::Config $config .= new: ns-map => ( Record, "other-ns" => {...} );
+
+This is, roughly, equivalent to:
+
+    my LibXML::Class::Config $config .= new: ns-map => { "my-ns" => {'rec' => Record}, "other-ns" => {...} };
+
+Sometimes we don't care about what namespace a type object declares and all we want is its XML name. Then a namespace can be declared with a list as its value:
+
+    my LibXML::Class::Config $config .= new: ns-map => ( "other-ns" => (Record, "foo" => Foo) );
+
+Some of possible variants are demoed in [*manual09.raku*](../../../../examples/manual09.raku).
+
 XML Sequence Objects
 --------------------
 
@@ -456,7 +574,9 @@ At the first glance, XML sequence (later in this section the term would often be
           <counter>42</counter> <!-- has Int $.counter; -->
         </my-seq>
 
-  * A sequence type can be a composition of other sequence and non-sequence types.
+  * A sequence type can be a composition of other sequence and non-sequence types. For a type to start behaving as a sequential it is enough for just any of its roles or parents to be one.
+
+### Declaring An XML Sequence
 
 Sequences are declared with help of `:sequence` named argument of `xml-element` type object declaration:
 
@@ -464,7 +584,7 @@ Sequences are declared with help of `:sequence` named argument of `xml-element` 
         has Str:D $.title is required;
     }
 
-Here we define a sequence which can consist of integer or string items. Here is an example of using the sequence from [*manual7.raku*](../../../../examples/manual7.raku):
+Here we define a sequence which can consist of integer or string items. Following is an example of using the sequence from [*manual07.raku*](../../../../examples/manual07.raku):
 
     my $refs = References.new: :title('An Article');
     $refs.push: 123456;
@@ -472,7 +592,55 @@ Here we define a sequence which can consist of integer or string items. Here is 
     $refs.push: "Another Article";
     $refs.push: 987654;
 
-[*manual8.raku*](../../../../examples/manual8.raku)
+It serializes into:
+
+    <References title="An Article">
+      <idx>123456</idx>
+      <ref title="3rd Party Article"/>
+      <ref title="Another Article"/>
+      <idx>987654</idx>
+    </References>
+
+The example in [*manual08.raku*](../../../../examples/manual08.raku) demonstrates that using an `xml-element` class as a sequence item type is even easier as it would normally has all we need to deserialize it:
+
+    class Ref is xml-element<ref> {...}
+    class Index is xml-element('index', :sequence( Ref, :idx(Int:D) )) {...}
+
+### Items Parameters
+
+In a way, a sequence item shares some properties with attributes. After all, attributes can be serialized into elements, same as items do. Internally both are handled with help of *descriptors* that inherit from the same descriptor parent class. That makes it possible for items to have certain parameters adjusted using named arguments:
+
+    class Index
+        is xml-element(
+            :sequence(
+                ( Ref, :derive ),
+                :idx( Int:D, :ns('some-ns') ),
+                :meta( Str:D, :attr<data> ) ))
+    {...}
+
+The following arguments are supported:
+
+  * `:attr(Str:D)` or `:value-attr(Str:D)`
+
+    These are aliases of the same thing: name of XML attribute to contain basic type value.
+
+  * `:namespace(...)`, `:ns(...)`
+
+    Again, just two aliases. Define item namespace profile.
+
+  * `:derive`
+
+    Turns on or off attribute namespace deriving mode. See the section [Namespaces](#Namespaces).
+
+  * `:&serializer`, `:&deserializer`
+
+    User provided serialization/deserialization.
+
+### XML:any Items
+
+Normally it doesn't make sense to use `:any` argument when declaring an `xml-element` type object. Unless for XML sequences. Marking one as XML:any allows to use `ns-map` for de-/serializing certain items.
+
+!!! ...
 
 SEE ALSO
 ========

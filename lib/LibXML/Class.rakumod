@@ -1677,11 +1677,12 @@ class XMLSequence does Positional does Iterable {
                                  LibXML::Class::ItemDescriptor:D $desc,
                                  LibXML::Element:D $node,
                                  UInt:D :$index,
+                                 Mu :$value-type is raw = NOT-SET,
                                  DeserializingCtx:D :$dctx = $*LIBXML-CLASS-CTX ) is raw
     {
         self.xml-try-deserializer: $desc, $node, :!coerce, {
             # For whatever reason, deserializer hasn't produced a value. Do it the standard way then.
-            my Mu $item-type := $desc.value-type;
+            my Mu $item-type := $value-type =:= NOT-SET ?? $desc.value-type !! $value-type;
 
             if $item-type ~~ XMLObject {
                 # Make sure prefixes declared on this item descriptor are propagaded downstream.
@@ -1695,7 +1696,7 @@ class XMLSequence does Positional does Iterable {
                                         :$prefix,
                                         user-profile => $dctx.user-profile )
             }
-            self.xml-try-deserializer: $desc, ($_ ?? $node.getAttribute($_) !! $node.textContent)
+            self.xml-try-deserializer: $desc, ($_ ?? $node.getAttribute($_) !! $node.textContent), :$value-type
                 given $desc.value-attr
         }
     }
@@ -1734,28 +1735,23 @@ class XMLSequence does Positional does Iterable {
 
         # Item is not ready, deserialize corresponding element
         my LibXML::Element:D $node = @!xml-seq-elems[$idx];
-        without my LibXML::Class::ItemDescriptor $desc =
-                    self.xml-lazy-deserialize-context: { $*LIBXML-CLASS-CTX.desc-for-elem($node) }
-        {
-            LibXML::Class::X::Deserialize::UnknownTag.new(:type(self.WHAT), :xml-name($node.localName)).throw
-        }
 
 
         self.xml-lazy-deserialize-context: {
+            my LibXML::Class::ItemDescriptor $desc = $*LIBXML-CLASS-CTX.desc-for-elem($node);
+
+            my Mu $value-type := NOT-SET;
+
             if !$desc && $!xml-is-any {
-                unless (my \item-type = $*LIBXML-CLASS-CONFIG.ns-map($node)) =:= Nil {
+                unless ($value-type := $*LIBXML-CLASS-CONFIG.ns-map($node)) =:= Nil {
                     # When succeed in mapping an element into a type for xml-any try to go back to the registry and locate
                     # a descriptor for the type.
-                    $desc = self!xml-ser-guess-descriptor($node, item-type);
+                    $desc = self!xml-ser-guess-descriptor($node, $value-type);
                 }
             }
 
             without $desc {
-                # TODO Give this a dedicated exception
-                # If there is no descriptor at this point it means there is a serious problem on our hands since the
-                # early processing should've filtered out any non-item elements.
-                LibXML::Class::X::AdHoc.new(
-                    message => "No type for sequential element <" ~ $node.name ~ "> – how is it ever possible?").throw
+                LibXML::Class::X::Deserialize::UnknownTag.new(:type(self.WHAT), :xml-name($node.localName)).throw
             }
 
             KEEP {
@@ -1768,7 +1764,7 @@ class XMLSequence does Positional does Iterable {
 
             self.xml-add-deserialization:
                 $node,
-                @!xml-items[$idx] := self.xml-deserialize-item($desc, $node, :index($idx))
+                @!xml-items[$idx] := self.xml-deserialize-item($desc, $node, :$value-type, :index($idx))
         }
     }
 

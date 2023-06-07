@@ -521,10 +521,10 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML does LibXML::Cl
 
     proto method xml-type-from-str(Mu:U, Str:D) {*}
     multi method xml-type-from-str(Bool, Str:D $xml-value) {
-        ($xml-value eq "1" | "true")
-            or ($xml-value eq "0" | "false"
-            ?? False
-            !! LibXML::Class::X::Deserialize::BadValue.new(:type(Bool), :value($xml-value)).throw)
+        ?($xml-value eq ("1" | "true"))
+            or ($xml-value eq ("0" | "false")
+                ?? False
+                !! LibXML::Class::X::Deserialize::BadValue.new(:type(Bool), :value($xml-value)).throw)
     }
     multi method xml-type-from-str(::T Mu:U, T(Str:D) \coerced) {
         coerced

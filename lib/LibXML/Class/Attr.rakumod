@@ -61,7 +61,7 @@ role XMLContainer {
     }
     # Name of the actual value XML element. If $value-type is passed in then it might be used to determine the name.
     method value-name(Mu $value is raw = Nil) {
-        my \name-src = $value eqv Nil ?? $.nominal-type !! $value;
+        my \name-src = $value eqv Nil ?? self.nominal-type !! $value;
         $!container && $!container ~~ Bool
             ?? (name-src ~~ BasicType
                 ?? Nil

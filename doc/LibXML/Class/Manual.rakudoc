@@ -1,30 +1,31 @@
 =begin pod
-=head1 C<LibXML::Class> Manual
+=head1 C<LibXML::Class> MANUAL
 
 =head2 DISCLAIMERS
 
 =begin item
-L<C<LibXML::Class>|docs/md/LibXML/Class.md> is not capable of handling all possible variations of XML files. Despite all
-the efforts taken to cover as many possible cases as possible, mapping of Raku objects into XML is and likely will
-remain its primary purpose.
+L<C<LibXML::Class>|docs/md/LibXML/Class.md> is not capable of handling every possible variation of XML files. Despite
+all the efforts taken to cover as many possible cases as possible, serializing of Raku objects into XML is and likely
+will remain its primary purpose. And yet the module is expected to be capable of properly deserializing many different
+formats into Raku.
 =end item
 
 =begin item
-Due to its extensive nature, this manual is created in mainly write-only mode, no proof-reading and other time-consuming
-luxuries. My deepest apologies for all the errors, but the priorities don't give me many choices.
+Due to its extensive nature, this manual is created in mainly write-only mode, with very limited proof-reading and other
+time-consuming luxuries. My deepest apologies for all the errors, but the priorities don't give me many choices.
 =end item
 
 =begin item
 Some concepts here may resemble what is familiar to you by L<C<XML::Class>|https://modules.raku.org/dist/XML::Class>
 implementation. This is because up to some extent C<LibXML::Class> has been inspired by it. Yet, the differences are
-way too significant, so don't let yourself fall into the trap of "Ah, I already know what's this is about!"
+way to significant, so don't let yourself fall into the trap of "Ah, I already know what's this is about!"
 =end item
 
 =head2 Kick-start
 
-The fastest way to start using C<LibXML::Class> is to apply a bare C<xml-element> trait to a class or role:
+The fastest way to start using C<LibXML::Class> is to apply bare C<xml-element> trait to a class or role:
 
-=begin code
+=begin code :lang<raku>
 class Record is xml-elemnt {
     has Int:D $.id is required;
     has Str:D $.comment is required;
@@ -32,17 +33,17 @@ class Record is xml-elemnt {
 }
 =end code
 
-And this is it. Now, anytime an instance C<$record> of C<Record> can be serialized into C<LibXML::Document> by calling
-C<to-xml> method on it:
+And you're all set! Now, at anytime an instance C<$record> of C<Record> can be serialized into C<LibXML::Document> by
+calling C<to-xml> method on it:
 
-=begin code
+=begin code :lang<raku>
 say $record.to-xml;
 =end code
 
-In a slightly more complex case an attribute of a class can store an instance of another C<xml-element> class:
+In a slightly more complex case a class attribute can store an instance of another C<xml-element> class:
 
-=begin code
-class Root {
+=begin code :lang<raku>
+class Root is xml-element {
     has Record:D $.record is required;
 }
 =end code
@@ -51,11 +52,11 @@ See L<I<manual01.raku>|../../../../examples/manual01.raku> in the L<I<examples>|
 
 =head3 Roles
 
-Not only classes bu roles can be declared as C<xml-element> too. Depending on how a role is used the effect could
+Not only classes but roles too can be declared as C<xml-element>. Depending on the way a role is used the effect could
 differ.
 
-Consuming an C<xml-element> role by a plain class turns it into a serializable explicit (see more on implicit/explicit
-declarations below) class.
+Consuming an C<xml-element> role by a plain class turns it into a serializable explicit (see more on L<implicit/explicit
+declarations|#Implicit Or Explicit Declarations> below) class.
 
 Consuming such role by a C<xml-element> class would simply extend it with role's functionality while allowing the role
 to maintain control over some serialization aspects like, for example, namespaces.
@@ -109,7 +110,7 @@ This term has its roots in I<.xsd> schemas of
 L<ECMA-376|https://www.ecma-international.org/publications-and-standards/standards/ecma-376> standard. A sequential XML
 element is a L<C<Positional>|https://docs.raku.org/type/Positional> (in terms of Raku) container. For example:
 
-=begin code
+=begin code :lang<raku>
 <my-seq>
   <rec1>val1</rec1>
   <rec2 value="foo1" />
@@ -133,7 +134,7 @@ B<XML container>, B<XML containerization>
 
 An XML element wrapping around value elemnt or series of elements. For example:
 
-=begin code
+=begin code :lang<raku>
 <container>
    <val-element>42</val-element>
 </container>
@@ -162,7 +163,7 @@ L<C<LibXML::Class>|../Class.md> exports just three traits to mark Raku objects a
 
 For example:
 
-=begin code
+=begin code :lang<raku>
 class Record is xml-element {
     has Str $.attr is xml-attribute;
     has Str $.content is xml-text;
@@ -328,7 +329,7 @@ L<Kick-start> section above.
 Contrary, with C<:!implicit> argument the object is set to explicit mode where only explicitly marked attributes are
 serializable. For example:
 
-=begin code
+=begin code :lang<raku>
 class Foo is xml-element(:!implicit) {
     has Int $.foo;
     has Str $.bar;
@@ -337,7 +338,7 @@ class Foo is xml-element(:!implicit) {
 
 Neither C<$.foo> nor C<$.bar> would not be serialized into XML. But:
 
-=begin code
+=begin code :lang<raku>
 class Foo is xml-element(:!implicit) {
     has Int $.foo;
     has Str $.bar is xml-element;
@@ -355,7 +356,7 @@ L<Roles|#Roles>.
 There is a reson to use C<:implicit> explicitly (no pun meant!) when declaring a type object. It makes sense if one
 wants all attributes to be auto-serialized except for few they want to give some special properties to:
 
-=begin code
+=begin code :lang<raku>
 class Foo is xml-element(:implicit) {
     has Int $.foo;
     has Str $.bar is xml-element;
@@ -396,7 +397,7 @@ to be used. To simplify handling of such situations there is a singleton configu
 L<C<LibXML::Class::Config>|Config.md> class method C<global>. To pre-configure it one can call the method with necessary
 parameters:
 
-=begin code
+=begin code :lang<raku>
 LibXML::Class::Config.global(:eager);
 =end code
 
@@ -404,7 +405,7 @@ The singleton can be initialized just once. Due to methods C<to-xml> and C<from-
 config it's better to make sure that the above line is executed as early as possible. But this is not a big deal
 because at any time particular parameters can be defined per particular de-/serialization:
 
-=begin code
+=begin code :lang<raku>
 use LibXML::Config :types;
 my $deserialization = Foo.from-xml: $xml, config => { :eager };
 $deserialization.to-xml: config => { :severity(STRICT) };
@@ -423,7 +424,7 @@ expect only one copy of it. Other times we can safely ignore it. How to react to
 C<severity> parameter which can be set to either of C<EASY>, C<WARN>, C<STRICT> values, available via C<:types> adverb
 when C<LibXML::Class::Config> is imported. When passed as a key in a profile the value can be a string:
 
-=begin code
+=begin code :lang<raku>
 Foo.from-xml: $xml, config => { :severity<EASY> }
 =end code
 =end item
@@ -465,14 +466,14 @@ implementation of laziness is covered by L<C<AttrX::Mooish>|https://modules.raku
 attribute is considered to be lazy it is the same as applying C<is mooish(:lazy)> trait to it. To be more specific,
 for a C<$.foo> it would look like:
 
-=begin code
+=begin code :lang<raku>
 has $.foo is mooish(:lazy<xml-deserialize-attr>, :predicate<xml-has-foo>) ...;
 =end code
 
 Though, when the XML elment name differs from I<foo>, like as if we used C«is xml-element<fubar>», then the C<predicate>
 name would use the given I<fubar> name for the method:
 
-=begin code
+=begin code :lang<raku>
 has $.foo is mooish(:lazy<xml-deserialize-attr>, :predicate<xml-has-fubar>) ...;
 =end code
 
@@ -534,6 +535,20 @@ when lazy operations are expected. I.e. we either have sequence items or lazy at
 lazies deserialize at any time in the future. Yet, as soon as every lazy attribute and every sequence item are vivified
 the context is no more needed and is released for the garbage collector to wipe it out.
 
+=head4 Unusued Nodes
+
+It is possible that during deserialization some nodes from the source XML elment could remain unclaimed. In an attempt
+to preserve the original XML source content, C<LibXML::Class> collects these unclaimed nodes, serializes them into AST
+representation using C<LibXML::Node> C<ast> method, and holds in a positional C<xml-unused> attribute. So, one can
+C<$deserialized.xml-unused.map: &process-unused;>.
+
+There is a "side effect" when unclaimed nodes are handled. Depending on configuration C<severity> setting the process
+may produce warnings or even die if the severity is I<C<STRICT>>.
+
+The unused node are then put back into XML upon serialization of the object. The internal order of the unused nodes is
+preserved, but not in relation to the actually serialized ones as these would be ordered according to the internal
+structure of Raku objects involved.
+
 =head2 Custom Or Manual De-/Serialization
 
 B<NB> This section is illustrated by L<I<manual06.raku>|../../../../examples/manual06.raku> code.
@@ -556,7 +571,7 @@ situation. For positional and associative Raku arguments it is possible that the
 out to the serializer for processing. In the L<I<manual06.raku>|../../../../examples/manual06.raku> file there are two
 examples where this feature is used. Here is a cut-out from the example:
 
-=begin code
+=begin code :lang<raku>
 multi sub serializer(LibXML::Element:D $elem, Real:D %r) {
     $elem.setAttribute:
         'ratios', %r.sort.map({ .key ~ ":" ~ (.value * 100) ~ "%;" }).join
@@ -651,7 +666,7 @@ Before going into greater details, let's borrow an example from
 L<C<XML::Class>|https://modules.raku.org/dist/XML::Class>, where they use SOAP envelope to demonstrate the problem and
 its solutions:
 
-=begin code
+=begin code :lang<raku>
 <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
     <Head/>
     <Body>
@@ -664,7 +679,7 @@ its solutions:
 
 This structure is supposed to map into the following class (traits stripped):
 
-=begin code
+=begin code :lang<raku>
 class Envelope {
     has $.Head;
     has $.Body;
@@ -676,7 +691,7 @@ of our XML is not a container – it is the attribute. But the value of it is co
 
 What if C«<Body>» is a sequence? Then it is possible to see something like the following:
 
-=begin code
+=begin code :lang<raku>
 <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
     <Head/>
     <Body>
@@ -696,11 +711,11 @@ because this is what makes XML:any possible.
 First of all, we start with defining a map of namespaces, XML element names, and types on our configuration (more
 detailed illustation can be found in L<I<manual09.raku>|../../../../examples/manual09.raku>):
 
-=begin code
+=begin code :lang<raku>
 my LibXML::Class::Config $config .= new: ns-map => %( #`{ ns-map declarations go here } );
 =end code
 
-=begin code
+=begin code :lang<raku>
 $root.to-xml: config => {
     ns-map => %( ... ),
 };
@@ -708,7 +723,7 @@ $root.to-xml: config => {
 
 Both of the above cases wind down to calling C<set-ns-map> method:
 
-=begin code
+=begin code :lang<raku>
 my LibXML::Class::Config $config .= new;
 $config.set-ns-map: #`{ ns-map definitions };
 =end code
@@ -717,7 +732,7 @@ The method has many candidates allowing for multiple use scenarios.
 
 The most basic C<ns-map> declaration would be a hash of hashes:
 
-=begin code
+=begin code :lang<raku>
 ns-map => {
     "my-ns" => {
         "foo" => Foo,
@@ -728,7 +743,7 @@ ns-map => {
 With this declaration we tell the module that C«<foo namespace="my-ns" .../>», or C«<pfx:foo xmlns:pfx="my-ns" ... />»
 elements are to be deserialized as C<Foo>. Other way around, for:
 
-=begin code
+=begin code :lang<raku>
 class Record is xml-element( :ns( :pfx<my-ns> ) ) {
     has $.attr is xml-element( :ns ); # The attribute is forced to use namespaces of its declarant class
 }
@@ -736,7 +751,7 @@ class Record is xml-element( :ns( :pfx<my-ns> ) ) {
 
 whenever the value in C<$.attr> happens to be an instance of C<Foo>, the attribute would serialize into something like:
 
-=begin code
+=begin code :lang<raku>
 <pfx:attr><pfx:foo /></pfx:attr>
 =end code
 
@@ -745,7 +760,7 @@ pointing out at the fact that their use allows us to distinguis even same-named 
 different namespaces. If we get back to the SOAP envelope example, having two C<Data> elements is as simple as having
 this C<ns-map>:
 
-=begin code
+=begin code :lang<raku>
 ns-map => {
     "urn:my-data" => {
         :Data(MyData),
@@ -762,7 +777,7 @@ is a problem then best solution for it would be to type-constraint an attribute.
 typical situation allowed types for an XML:any attribute would share some common property, like a role they consume, or
 a class they inherit from:
 
-=begin code
+=begin code :lang<raku>
 role EnvData { }
 class EnvData1 does EnvData { }
 class EnvData2 does EnvData { }
@@ -786,7 +801,7 @@ Declaring C<ns-map> as a hash is the most basic but also the most limited way. T
 For example, an C<xml-element> class can be used as-is since we can pull out all necessary information directly out of
 it. This works with a L<C<List>|https://docs.raku.org/type/List> representation of C<ns-map>:
 
-=begin code
+=begin code :lang<raku>
 class Record is xml-element(<rec>, :ns( 'my-ns' )) { ... }
 
 my LibXML::Class::Config $config .= new: ns-map => ( Record, "other-ns" => {...} );
@@ -794,14 +809,14 @@ my LibXML::Class::Config $config .= new: ns-map => ( Record, "other-ns" => {...}
 
 This is, roughly, equivalent to:
 
-=begin code
+=begin code :lang<raku>
 my LibXML::Class::Config $config .= new: ns-map => { "my-ns" => {'rec' => Record}, "other-ns" => {...} };
 =end code
 
 Sometimes we don't care about what namespace a type object declares and all we want is its XML name. Then a namespace
 can be declared with a list as its value:
 
-=begin code
+=begin code :lang<raku>
 my LibXML::Class::Config $config .= new: ns-map => ( "other-ns" => (Record, "foo" => Foo) );
 =end code
 
@@ -843,7 +858,7 @@ can individually configure namespace parameters, serializer, and deserializer.
 XML sequences can contain non-item elements too. From the Raku language point of view it means they can have
 serializable attributes:
 
-=begin code
+=begin code :lang<raku>
 <my-seq>
   <rec1>val1</rec1>
   <rec2 value="foo1" />
@@ -863,7 +878,7 @@ sequential it is enough for just any of its roles or parents to be one.
 
 Sequences are declared with help of C<:sequence> named argument of C<xml-element> type object declaration:
 
-=begin code
+=begin code :lang<raku>
 class References is xml-element( :sequence( :idx(Int:D), :ref(Str:D, :attr<title>) ) ) {
     has Str:D $.title is required;
 }
@@ -872,7 +887,7 @@ class References is xml-element( :sequence( :idx(Int:D), :ref(Str:D, :attr<title
 Here we define a sequence which can consist of integer or string items. Following is an example of using the sequence
 from L<I<manual07.raku>|../../../../examples/manual07.raku>:
 
-=begin code
+=begin code :lang<raku>
 my $refs = References.new: :title('An Article');
 $refs.push: 123456;
 $refs.push: "3rd Party Article";
@@ -882,7 +897,7 @@ $refs.push: 987654;
 
 It serializes into:
 
-=begin code
+=begin code :lang<raku>
 <References title="An Article">
   <idx>123456</idx>
   <ref title="3rd Party Article"/>
@@ -894,18 +909,18 @@ It serializes into:
 The example in L<I<manual08.raku>|../../../../examples/manual08.raku> demonstrates that using an C<xml-element> class
 as a sequence item type is even easier as it would normally has all we need to deserialize it:
 
-=begin code
+=begin code :lang<raku>
 class Ref is xml-element<ref> {...}
 class Index is xml-element('index', :sequence( Ref, :idx(Int:D) )) {...}
 =end code
 
-=head3 Items Parameters
+=head3 Item Parameters
 
 In a way, a sequence item shares some properties with attributes. After all, attributes can be serialized into elements,
 same as items do. Internally both are handled with help of I<descriptors> that inherit from the same descriptor parent
 class. That makes it possible for items to have certain parameters adjusted using named arguments:
 
-=begin code
+=begin code :lang<raku>
 class Index
     is xml-element(
         :sequence(
@@ -944,9 +959,282 @@ User provided serialization/deserialization.
 =head3 XML:any Items
 
 Normally it doesn't make sense to use C<:any> argument when declaring an C<xml-element> type object. Unless for XML
-sequences. Marking one as XML:any allows to use C<ns-map> for de-/serializing certain items.
+sequences. Marking one as XML:any allows to use C<ns-map> for sequence items.
 
-!!! ...
+There are two screnarios where XML:any helps with item de-/serialization
+(L<I<manual10.raku>|../../../../examples/manual10.raku>).
+
+=begin item :numbered
+Basic type
+
+Since basic types doesn't have names binding them to an XML element name could be done with the help of C<ns-map>.
+=end item
+
+=begin item :numbered
+Role-constrained items
+
+Even though it is possible to declare an item as C«:elem(SomeRole)» the declaration barely makes much sense for
+deserialization because there is no way to know what class to deserialize an C«<elem ...>» into. As a best guess we can
+pun the C<SomeRole> role, but the resulting class is sufficiently likely to be useless. But XML:any could be very handy
+here.
+=end item
+
+XML:any item elements are not getting wrapped into any kind of container, except for the sequence tag itself which is
+a container on its own, as a matter of fact.
+
+Otherwise they way XML:any works for items is no different what how it does for attributes.
+
+=head2 Namespaces
+
+C<LibXML::Class> tries to follow XML rules whenever possible when it comes to namespaces. However, Raku is not XML,
+apparently, and what is natural to the latter may not be as natural for the former. To make it all easier the module
+tries to mainain reasonable defaults while allowing to do fine-tuning when necessary.
+
+Here is the basic rules of namespacing in C<LibXML::Class>:
+
+=begin item
+An object namespace information may have a prefix (the I<"pfx"> in C«<pfx:foo/>»), a default namespace (I<"default"> in
+C«<foo xml-ns="default" /»), and prefix definition registry where prefixes are mapped into respective namespaces.
+=end item
+
+=begin item
+For every object namespace is defined by its prefix if set; otherwise the default namespace is used.
+=end item
+
+=begin item
+Raku attribute declaration is the primary authority for any namespace information. If the attruibute declaration doesn't
+provide any then class declaration is used if attribute's type is an C<xml-element> type object.
+=end item
+
+=begin item
+If an object doesn't get its namespace neither for the attribute nor from its class then the default namespace of
+attribute's declarator is used.
+=end item
+
+These basics can be seen in action in L<I<manual11.raku>|../../../../examples/manual11.raku>. Pay attention to how
+overriding the default namespace with C<xml-default-ns> profile key affects the result where elements with no explicit
+namespaces still are bound to the default, whereas C<$.rec> sticks to what is declared for C<Record>.
+
+It is expected that this behavior would cover most cases of de-/serializing with namespaces.
+
+=head3 Declaring Namespaces With C<:namespace>/C<:ns> Argument
+
+The common argument to declare namespace information is C<:namespace>, or its shorter alias C<:ns>. The arguments
+itself can take arguments but can also be used as a flag with attributes or sequence items. Let's start with the latter.
+
+=begin item
+When used as plain C<:namespace> (C<:ns>) the argument signals that the element must take both the prefix and the
+default from its declarant type object. Make sure you get it right: not from object, not from C<xml-element> class, but
+from direct declarant type object! For example:
+
+=begin code :lang<raku>
+role Recordish is xml-element( :ns<role-default> ) {
+    has Str $.foo is xml-element( :namespace );
+}
+class Record is xml-element( :ns<class-default> ) does Recordish {
+    has Int $.count is xml-element;
+}
+=end code
+
+C<$.foo> will always have no prefix and the default namespace set to I<"role-default">. Whereas C<$.count> would
+continue to use the default, calculated for a C<Record> instance.
+
+See L<I<manual12.raku>|../../../../examples/manual12.raku>.
+=end item
+
+=begin item
+When used as plain negation C<:!namespace> (C<:!ns>) the argument would make its attribute or sequence item to force the
+default namespace rules, no matter what C<:impose-ns> or C<:derive> are telling us. These two have not been discussed
+yet, but L<I<manual13.raku>|../../../../examples/manual13.raku> should be pretty much clear for understanding.
+=end item
+
+=begin item
+C<:namespace> can take arguments and in this case it expects:
+
+=item One or none default namespace string
+=item One or none default namespace prefix as a I<True>-value L<C<Pair>|https://docs.raku.org/type/Pair>
+=item A list of L<C<Str>|https://docs.raku.org/type/Str>-value pairs where keys are namespace prefixes, and the values are namespaces
+
+For example:
+
+=begin code :lang<raku>
+:ns("default-ns", :pfx, :pfx('http://prefix.namespace', :foo('http://foo.namespace')))
+=end code
+
+This declaration contains one default namespace I<"default-ns">, one default namespace prefix I<pfx>, and definitions
+for prefixes I<pfx>, and I<foo>.
+
+I<Note> that C<LibXML::Class> does its best to preserve the order in which prefix declarations are encountered. It means
+that whatever entity, which used the above C<:ns> declaration would have I<xmlns:pfx>, and I<xmlns:foo> attributes
+to appear in exactly this order when serialized into the final XML.
+=end item
+
+=head3 Defined And Undefined Namespace
+
+A namespace is considered I<defined> for an entity if any of the default or prefix is set to a concrete value. For the
+default namespace it means that even when it is I<no namespace> value, which is an empty string I<"">, we consider it
+as defined.
+
+=head3 Namespaces Propagation
+
+Default namespace and prefix definitions are propagaded from the entity, where they are declarated, downstream to the
+child C<xml-element> entitiies. This rule doesn't apply to the default prefix. In
+L<I<manual14.raku>|../../../../examples/manual14.raku> the propagation principle is demonstrated by declarations of
+class C<Record> and attribute C<@.info> of C<Meta> where both are using prefix I<foo> as their default even though it is
+declared for C<Root>.
+
+The example is also good to see how not declaring the default namespace results in the top-level one to be used, even
+when a parent element is explicitly prefixed. While it might not be really apparent at the first glance, but this is to
+follow XML principles.
+
+=head3 Imposing Namespaces
+
+Sometimes it makes sense for type object's default namespace and prefix to be used by all serializable attributes,
+except for C<xml-text> one, of course. Apparently, one way to do it is to use boolean C<:namespace> with each one, but
+that could be too tedious for a big number of attributes. Instead, with C<:impose-ns> argument of C<xml-element> trait,
+this could be achieved "in a single click":
+
+=begin code :lang<raku>
+role Itemish is xml-element(:impose-ns, :ns(:pfx)) {
+    has Str $.attr1 is xml-element;
+    has Int $.attr2 is xml-attribute;
+}
+class Item is xml-element(:ns("my-ns", :pfx<pfx-ns>)) does Itemish {
+    has Num $.attr3 is xml-element;
+}
+=end code
+
+This snippet is done this way to illustrate how a role can enforce its defaults while a class consuming the role would
+still be using its own defaults.
+
+Imposition only applies to entities with undefined namespace.
+
+=head3 Deriving Namespace Defaults
+
+When we say that an entity is I<deriving> its namespace defaults it means that it takes them from its parent XML
+element. In other words, if we want something to I<derive> then we want it to stick to the same namespace as its parent
+XML element.
+
+Have you noticed the doubling of 'parent XML element'? This is because what is really takes place when defaults are
+computed for an attribute or sequence item, no matter wether we serialize or deserialize. In either case, when we
+come down to processing the entity it means that the parent element of it has been validated and its namespacing is
+fully established.
+
+Derivation can be triggerred on per entity with help of C<:derive> keyword, or disabled using negated version
+C<:!derive>.
+
+To have it as the default globally or per-document one can use corresponding setting on
+L<C<LibXML::Config>|https://modules.raku.org/dist/LibXML::Config>:
+
+=begin code :lang<raku>
+LibXML::Config.global(:derive);
+=end code
+
+or per document:
+
+=begin code :lang<raku>
+class Root is xml-element(...) {...}
+my $root = Root.new(...);
+$root.to-xml( :config{:derive} );
+=end code
+
+Sometimes it makes sense to have derivation default on or off for only XML elements or attributes. This is done by
+specifying corresponding named argument with C<:derive>:
+
+=begin code :lang<raku>
+$root.to-xml( :config{ :derive(:attribute) } );
+$root.to-xml( :config{ :derive(:element) } );
+=end code
+
+The case of individual default is well covered by L<I<200-pml-parser.rakutest>|../../../../t/200-pml-parser.rakutest>,
+where attributes of the source XML are all prefix-less whereas elements are prefixed. The test also makes a great
+explanation as to why derivation exists as such. Even though the source XML is using I<xsd> prefix, but generally
+speaking, this choice is somewhat arbitrary and any other prefix can be used. What is not arbitrary is that the prefix
+is persistent and is shared among parent and children elements.
+
+L<I<manual15.raku>|../../../../examples/manual15.raku> contains simpler but made up example of deriving. It also
+has an example of what happens when we deserialize without C<:derive> a structure that's been serialized with this
+setting. In few words, we end up with unused elements and get warned about it (or worse, depending on config's
+C<severity> parameter).
+
+Derivation defaults only for entities with undefined namespace.
+
+=head2 XML Element Based Search
+
+One of the features of L<C<LibXML>|https://modules.raku.org/dist/LibXML> module that quickly captures ones attention
+from the start is L<XPath based
+search|https://github.com/libxml-raku/LibXML-raku/blob/0.10.3/docs/Node.md#method-findnodes> for XML nodes within
+document. Apparently, it wouldn't work for deserialized... But you guessed it already: it actually does! Because
+navigating a big datastructure, looking for Raku representation of a particular XML node is not easy if possible at all.
+
+The search is implemented for both C<xml-element> type objects and L<C<LibXML::Class::Document>|Document.md>.
+Though the method on the type objects is following API naming guidelines and is named C<xml-findnodes>, whereas on the
+document, which is a C<LibXML::Class> thing on its own, it doesn't have the prefix and is simply named C<findnodes>.
+Otherwise both are eventually end up calling document's C<find-deserialization> method.
+
+Searching for deserialization is, in a way, rather simple process of mapping XML node unique key, provided by the
+C<unique-key> method of C<LibXML::Node>, into a Raku object produced from that node. Since C<LibXML::Node> C<findnodes>
+method returns an iterable, C<LibXML::Class> searches would come up with a L<C<Seq>|https://docs.raku.org/type/Seq> of
+found deserializations.
+
+Note, please, how the term 'Raku object' adove is used without any reference to C<LibXML::Class>. This is because
+deserialization of a node might result an anything, ranging from basic type value to whatever user-provided deserializer
+returned.
+
+Another important note to be made is that the permanent reference to 'deserialization' is not accidental and it means
+that search only works for C<xml-element>-instances produced from some kind of XML source.
+
+So far so good, but let's get back to that infamous "in a way" saying above. Not even to mention that deserializations
+are often lazy by default because this is not your problem and C<LibXML::Class> is seemingly succeeds in solving it for
+you. But there are unapparent surprises like XML contaners (C<:container> declaration), arrays, sequences, XML
+attributes...
+
+Luckily, there is one simple rule to remember about all of them: if an XML node has been used to produces a
+deserialization then search would return that deserialized value. Most simple example would be an XML container element
+mapping into the attribute value, for which it was declared. A container's child element would map either into the same
+attribute, or into it's respective array element, etc.
+
+Another case would be a text node. Since there could only be single C<xml-text> attribute on a class, even if an XML
+element contains multiple C<#text> they all would result in the same attribute value.
+
+=head3 Disabling Or Tuning The Search Feature
+
+If you are not interested in searching and would like to spare some memory instead then consider disabling
+C<deserialization-registry> on configuration object:
+
+=begin code :lang<raku>
+LibXML::Config.global( :disable-registry );
+# ... or ...
+$root.from-xml: ..., :config{ :disable-registry };
+=end code
+
+Another potentially memory-hungry feature is the I<global index> of deserializations held by the document instance.
+Even though it only contains C<xml-element> objects, a big XML structure might end up having too many of them. The
+global index is actually just a cache to speed up search. For this reason it can be safely disabled. In this case the
+search would fall back to tree traversal approach, starting from the document root and going down its attributes. Even
+though it is not as fast as a cache lookup, it's still good enough and takes less memory:
+
+=begin code :lang<raku>
+LibXML::Config.global( :!global-index );
+# ... or ...
+$root.from-xml: ..., :config{ :!global-index };
+=end code
+
+=head3 Caveats
+
+=begin item
+A search is always resulting in a C<Seq>, even if it is done for a single XML node. Moreover, there are chances that
+the C<Seq> would consists of more than a single object! This is because a deserialization can be, for example, cloned.
+For a basic time cloning the value do nothing, but an C<xml-element> takes care of registering itself as a candidate.
+=end item
+
+=begin item
+Be careful when searching for an unused element or its child nodes of any kind as this is an error situation.
+=end item
+
+=head1 CONTRIBUTING
+
+Please, submit bugs or pull requests to https://github.com/vrurg/raku-LibXML-Class. Any help would be appreciated!
 
 =head1 SEE ALSO
 

@@ -25,6 +25,8 @@ SEE ALSO
 
   * [`LibXML::Class`](../Class.md)
 
+  * [`LibXML::Class::Attr::XMLish`](Attr/XMLish.md)
+
 COPYRIGHT
 =========
 

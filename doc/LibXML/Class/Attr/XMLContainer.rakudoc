@@ -1,0 +1,57 @@
+=begin pod
+=head1 NAME
+C<LibXML::Class::Attr::XMLContainer> - XML-containerizeable C<xml-element> attributes
+=head1 DESCRIPTION
+
+This is the base role for attribute descriptors capable of implementing C<:container> parameter of C<xml-element> trait.
+
+=head2 Attribute
+
+=begin item
+B<C<$.container>>
+
+Can be either L<C<Bool>|https://docs.raku.org/type/Bool> or L<C<Str>|https://docs.raku.org/type/Str>. In the latter
+case the value is a name of container XML element.
+=end item
+
+=head2 Methods
+
+=begin item
+B<C<method outer-name()>>
+
+Returns either container name, or C<$.xml-name>. In either case, it is the outermost XML element name of this
+attribute's serialization.
+=end item
+
+=begin item
+B<C<method container-name()>>
+
+Returns I<Nil> if attribute is not containerized. Otherwise it would be either C<$.container> when it's a string, or
+C<$.xml-name>.
+=end item
+
+=begin item
+B<C<method value-name(Mu $value?)>>
+
+Returns XML name of value element for this attribute. When there is no container the name would be just C<$.xml-name>.
+With a container value type is determined either from C<$value>, if passed in, or from attribute's nominal type. The
+type is used to determine the name and I<Nil> would be returned if the type is a basic one.
+=end item
+
+=head1 SEE ALSO
+
+=item L<I<README>|../../../../README>
+=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class>|../Class.md>
+=item L<C<LibXML::Class::Attr>|../Attr.md>
+
+=head1 COPYRIGHT
+
+(c) 2023, Vadim Belman <vrurg@cpan.org>
+
+=head1 LICENSE
+
+Artistic License 2.0
+
+See the L<I<LICENSE>|../../../../LICENSE> file in this distribution.
+=end pod

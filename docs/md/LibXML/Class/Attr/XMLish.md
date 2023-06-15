@@ -48,6 +48,8 @@ SEE ALSO
 
   * [`LibXML::Class`](../Class.md)
 
+  * [`LibXML::Class::Attr`](../Attr.md)
+
 COPYRIGHT
 =========
 

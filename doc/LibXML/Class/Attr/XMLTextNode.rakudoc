@@ -1,0 +1,54 @@
+=begin pod
+=head1 NAME
+C<LibXML::Class::Attr::XMLTextNode> - descriptor for C<xml-text> attributes
+=head1 DESCRIPTION
+
+Consumes L<C<LibXML::Class::Attr::Node>|Node.md>, but doesn't support namespacing and would throw
+C<LibXML::Class::X::Attr::NoNamespace> if any of namespace-related methods is called.
+
+=head1 Attribute
+
+=begin item
+B<C<Bool $.trim>>
+
+If I<True> then the text from XML would be trimmed. Remember that despite the text content of an XML element is collected
+from all its C<#text> nodes, only the white spaces at the start and at the end are trimmed. I.e., for the following
+node:
+
+=begin code :lang<xml>
+<elem>
+    <foo />
+    word1
+    <bar />
+    word2
+    <baz />
+</elem>
+=end code
+
+The resulting text after trimming would be I<"word1\n    \n    word2">. This is not a big deal as de-/serialization
+must normally operate over non-formatted XML files. Otherwise most common use for this flag would be for simple cases
+like this one:
+
+=begin code :lang<xml>
+<someValue>
+    Indented text
+</someValue>
+=end code
+=end item
+
+=head1 SEE ALSO
+
+=item L<I<README>|../../../../README>
+=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class>|../Class.md>
+
+=head1 COPYRIGHT
+
+(c) 2023, Vadim Belman <vrurg@cpan.org>
+
+=head1 LICENSE
+
+Artistic License 2.0
+
+See the L<I<LICENSE>|../../../../LICENSE> file in this distribution.
+=end pod

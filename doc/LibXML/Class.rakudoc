@@ -7,7 +7,7 @@ C<LibXML::Class> – general purpose XML de-/serialization for Raku
 
 =head2 Simple Case
 
-=begin code
+=begin code :lang<raku>
 use LibXML::Class;
 
 class Record1 is xml-element {
@@ -23,7 +23,7 @@ say $rec.to-xml.Str(:format);
 
 This would result in:
 
-=begin output
+=begin output :lang<xml>
 <?xml version="1.0" encoding="UTF-8"?>
 <Record1 id="1000" description="test me">
   <meta>
@@ -35,7 +35,7 @@ This would result in:
 
 =head2 More Complex Case
 
-=begin code
+=begin code :lang<raku>
 use LibXML::Class;
 use Test::Async;
 
@@ -107,6 +107,342 @@ ok 1 - both are the same
 
 =head1 DESCRIPTION
 
+Primary documentation for this module can be found in L<C<LibXML::Class::Manual>|Class/Manual.md>. Here we would only
+focus on a couple of technical details.
 
+=head2 A Quick Note On Deserialization
 
+Whereas serialization is not that complex, after all, deserialization proves to be much trickier, espcially when it
+comes to implementing lazy operations. The information in this section would only prove useful if you plan to somehow
+"participate" in this party.
+
+Deserialization is split into two major steps. The first one is building a profile for object constructor. At this step
+we only know our outer deserialization context (think of it as if we know about our parent and how it is deserializing),
+the current element we're about to deserialize, and the target class, an instance of which will represent the element
+in Raku. When profile building is done (i.e. we have a C<%profile> hash with all necessary keys) we instantiate the
+class using its C<xml-create> method:
+
+=begin code :lang<raku>
+TargetClass.xml-create: |%profile
+=end code
+
+The second step is not clearly localized in time as it might happen when the profile is being built, or later (up to
+never at all) if lazy operations are in effect. Either way, this step is about the I<actual> deserialization from the
+XML source. It takes place individually for every entity like attribute of sequence item.
+
+=head2 Attributes Of C<xml-element> Class
+
+A few attributes that C<xml-element> trait would introduce onto your XMLized type object that might be useful on
+occasion.
+
+I<Note> that attributes listed here are actually private. Public access to them is provided via plain old methods.
+
+=begin item
+B<C<Int:D> C<$.xml-id>>
+
+Unique ID of this deserialization. Cloning creates a new ID.
+=end item
+
+=begin item
+B<C<LibXML::Class::Document> C<$.xml-document>>
+
+A document object. May remain undefined for manually created instances. For deserializations this is the glue which
+binds them all together and to the source C<LibXML::Document>.
+=end item
+
+=begin item
+B<C<LibXML::Element> C<$.xml-backing>>
+
+The XML element that's been deserialized to produce this instance.
+=end item
+
+=begin item
+B<C<$.xml-dctx>>
+
+Returns deserialization context instance. When lazy operations are disabled or all lazy elements have been deserialized,
+resulting in dropping of the context, attribute value is undefined.
+=end item
+
+=begin item
+B<C<$.xml-unused>>
+
+A list of L<C<LibXML>|https://modules.raku.org/dist/LibXML> AST nodes representing XML nodes not used in deserialization of this instance.
+=end item
+
+=begin item
+B<C<$.xml-unique-key>>
+
+Shortcut to C<$.xml-backing.unique-key>.
+=end item
+
+=head2 Dynamic Variables
+
+The serialization and deserialization processes are, apparently, very much context-dependent. Therefore a couple of
+dynamic variables are used to maintain and provide current context state.
+
+=begin item
+B<C<$*LIBXML-CLASS-CONFIG>>
+
+Current context configuration instance.
+=end item
+
+=begin item
+B<C<$*LIBXML-CLASS-CTX>>
+
+Context object. Currently serialization doesn't require specific context, but deserialization is using this variable.
+Deserialization context API would be documented later in this document.
+=end item
+
+=begin item
+B<C<$*LIBXML-CLASS-ELEMENT>>
+
+The C<LibXML::Element> instance currently being de-/serialized. Might be useful for a custom de-/serializer code.
+=end item
+
+=begin item
+B<C<%*LIBXML-CLASS-OVERRIDE>>
+
+Don't toy with this one unless you I<do know> what are you doiing!
+
+Only used by deserialization. Content of this hash is used to override nested context prefix definitions. Whatever
+prefixes are proivided with this dynamic would override anything C<xml-from-element> method finds in its outer
+deserialization context, or in the defaults.
+=end item
+
+=head2 Methods Of C<xml-element> Class
+
+Methods available on an C<xml-element>-traited class.
+
+=begin item
+B<C<proto method to-xml(|)>>
+
+=item B<C<multi method to-xml(Str :$name, Str :ns(:namespace(:$xml-default-ns)), Str :prefix(:$xml-default-ns-pfx), :$config)>>
+=item B<C<multi method to-xml(LibXML::Document:D $doc, Str :$name, Str :ns(:namespace(:$xml-default-ns)), Str :prefix(:$xml-default-ns-pfx), :$config)>>
+=item B<C<multi method to-xml(LibXML::Element:D $elem, Str :ns(:namespace(:$xml-default-ns)), Str :prefix(:$xml-default-ns-pfx), :$config)>>
+
+Serializes an C<xml-element> class. The default without a positional argument would return full C<LibXML::Document>
+instance.
+
+With C<$doc> or C<$elem> positionals an C<LibXML::Element> would be returned. The only difference is that for C<$doc>
+case the element would be created on the document provided. Otherwise the object would serialize into C<$elem>.
+
+The named arguments are:
+
+=item C<$name> would override the target element name; not used when C<$elem> is passed in
+=item C<$xml-default-ns> would force the default namespace of the XML element
+=item C<$xml-default-ns-pfx> would force the default namespace prefix
+=item C<$config> can be either an instance of L<C<LibXML::Class::Config>|Class/Config.md>, or a hash of config parameters
+=end item
+
+=begin item
+B<C<proto method from-xml(|)>>
+
+=item B<C<multi method from-xml(IO:D $source, *%nameds)>>
+=item B<C<multi method from-xml(Str:D $source-xml, *%nameds)>>
+=item B<C<multi method from-xml(Str:D $source-xml, LibXML::Class::Document:D :$document!, *%nameds)>>
+=item B<C<multi method from-xml(LibXML::Document:D $libxml-document, LibXML::Class::Config:D :$config!, *%nameds)>>
+=item B<C<multi method from-xml(LibXML::Element:D $elem, LibXML::Class::Document:D $document?, Str  :$name, Str :ns(:namespace(:$xml-default-ns)), Str :prefix(:$xml-default-ns-pfx), :$config, :%user-profile)>>
+
+Deserialize and create an instance of the class-invocant of the method.
+
+Named arguments are mostly the same for each multi-candidate except for the ones where C<LibXML::Class::Document>
+instance is known and where C<$config> just doesn't make sense because we have it on the document:
+
+=begin item
+C<$name> overrides the expected element name when the element we deserialize from has a name different from invocant's
+default.
+=end item
+=begin item
+C<$xml-default-ns>, C<$xml-default-ns-pfx> override the namespace parameters if we know that the ones of the source
+element are different from class defaults.
+=end item
+=item C<$config> can be either an instance of L<C<LibXML::Class::Config>|Class/Config.md>, or a hash of config parameters
+=begin item
+C<%user-profile> is used as additional named arguments for the C<new> constructor method of not the invocant class alone
+but for all deserializations of its child elements.
+=end item
+=end item
+
+=begin item
+B<C<method xml-name()>>
+
+Returns element name of the invocant. For a class/role it would be their default name.
+=end item
+
+=begin item
+B<C<method xml-class()>>
+
+Returns the actual XMLized class. This method provides easy access to the type object which provides all defaults if
+the invocant is a non-XMLized subclass.
+=end item
+
+=begin item
+B<C<method xml-config()>>
+
+Returns current context C<LibXML::Class::Config> instance.
+=end item
+
+=begin item
+B<C<method xml-has-lazies()>>
+
+Returns I<True> if any lazy entities are undeserialized yet.
+=end item
+
+=begin item
+B<C<method xml-serialize-stages()>>,
+B<C<method xml-profile-stages()>>
+
+De-/serialization can be a multi-stage process. The simplest case is for plain XMLized classes where there is just one
+stage. XML sequence requires two stages to do it. These methods must return lists of method names implementing each
+stage. If you wish to add some custom processing then the best solution would be to inject your own stage to a list by
+overriding a method or both.
+
+B<Note> that the second method is not named C<xml-deserialize-stages> because this is not exactly about deserialization
+as such.
+=end item
+
+=begin item
+B<C<method xml-new-dctx(*%profile)>>
+
+Returns a new deserialization context using constructor profile in C<%profile>.
+=end item
+
+=begin item
+B<C<method xml-create(*%profile)>>
+
+This method is used by C<LibXML::Class> to create and new instance of an C<xml-elemnt> class when it's done building a
+constructor method C<%profile>. The default version of it simply redirect to the standard method C<new>, but
+L<C<LibXML::Class::Config>|Class/Config.md> is overriding it for manually XMLized classes to produce an instance of the original,
+non-XMLized, class as the result of deserialization.
+=end item
+
+=begin item
+B<C<method xml-add-deseializarion(LibXML::Node:D $node, Mu $representation)>>
+
+Registers C<$representation> as a deserialization for the C<LibXML> C<$node>. This makes the representation searchable
+with C<LibXML::Class::Document> C<findnodes> or C<find-deserializations> methods.
+=end item
+
+=begin item
+B<C<proto method xml-deserializations(|)>>
+
+=item B<C<multi method xml-deserializations(LibXML::Node:D $node)>>
+=item B<C<multi method xml-deserializations(Str:D $unique-key)>>
+
+Returns a list of deserializations registered for the C<$node>, or for a node with C<$unique-key> with
+C<xml-add-deserialization>. Returns L<C<Nil>|https://docs.raku.org/type/Nil> if there is nothing.
+=end item
+
+=begin item
+B<C<proto method xml-has-deserializations(|)>>
+
+=item B<C<multi method xml-has-deserializations(LibXML::Node:D $node)>>
+=item B<C<multi method xml-has-deserializations(Str:D $unique-key)>>
+
+Returns I<True> if there is at least one deserialization registered for a C<$node> or a C<$unique-key>.
+=end item
+
+=begin item
+B<C<proto method xml-remove-deserialization(|)>>
+
+=item B<C<multi method xml-remove-deserialization(LibXML::Class::XMLObject:D $representation)>>
+=item B<C<multi method xml-remove-deserialization(Str:D $unique-key, Mu $representation)>>
+
+Remove a deserialization from the registry. Normally this is only to be done when it is about to be destroyed.
+=end item
+
+=begin item
+B<C<method xml-findnodes(|c)>>
+
+This method is equivalent to L<C<LibXML::Class::Document>|Class/Document.md> C<findnodes> method expect that the
+undelying L<C<LibXML>|https://modules.raku.org/dist/LibXML> method of the same name is invoked on the deserialization's
+backing element in C<$.xml-backing>. If for any reason there is no backing the method returns a
+L<C<Failure>|https://docs.raku.org/type/Failure> with C<LibXML::Class::X::Deserialize::NoBacking> exception.
+=end item
+
+=begin item
+B<C<method xml-lazy-deserialize-context(&code)>>
+
+This methods invokes a code object in C<&code> within dynamic context where C<$*LIBXML-CLASS-CTX> and
+C<$*LIBXML-CLASS-CONFIG> are set. When the C<&code> finishes the method checks if all lazies have been deserialized
+already and drops the deserialization context if they have.
+
+Returns the result of C<&code> invocation.
+
+C<LibXML::Class::X::Deserialize::NoCtx> is thrown if there is no context.
+=end item
+
+=begin item
+B<C<method xml-deserialize-attr(Str:D :$attribute!)>>
+
+This method implements lazy deserialization of a Raku C<$attribute>. It is normally invoked by
+L<C<AttrX::Mooish>|https://modules.raku.org/dist/AttrX::Mooish> upon accessing a lazy attribute.
+
+This is a multi-dispatch method, but the other candidates are implementation detail. It is highly recommended to only
+override this method in a subclass (your C<xml-element> class, normally) to do some pre- or post-processing for
+deserialization.
+=end item
+
+=begin item
+B<C<proto method xml-serialize-attr(LibXML::Element:D $elem, LibXML::Class::Attr::XMLish:D $descriptor)>>
+
+Similarly to the C<xml-deserialize-attr> method, this one is rather an implementation detail and only recommended for
+pre- or post-processing in a subclass. C<$elem> is the destination element for serialization of the value in a Raku
+attribute.
+=end item
+
+=begin item
+B<C«method xml-to-element(LibXML::Element:D $elem, ... --> LibXML::Element:D)»>,
+B<C<method xml-from-element(LibXML::Element:D $elem, LibXML::Class::Document:D $doc, ...)>>
+
+Both methods are implementation details not to be invoked directly. But they're good candidates to do
+pre-/post-processing as these are the final destinations methods C<to-xml> and C<from-xml> call. Basically consider the
+latter two as API frontends only.
+
+In both cases C<$elem> is the L<C<LibXML>|https://modules.raku.org/dist/LibXML> representation of our C<xml-element> class-invocant.
+=end item
+
+=head3 Methods Available For XML Sequence Types
+
+Sequence types provide basic methods one would expect for L<C<Positional>|https://docs.raku.org/type/Positional> and
+L<C<Iterable>|https://docs.raku.org/type/Iterable>. If a traditional method is not implemented then either it isn't
+compatible with XML sequences or it could be implemented in the future; perhaps, by a request.
+
+=begin item
+B<C<method xml-serialize-item(LibXML::Element:D $elem, LibXML::Class::ItemDescriptor:D $desc, Mu $value)>>
+
+Method serializes a sequence item C<$value> into XML sequence element C<$elem>. The method returns serialized
+XML element representing the C<$value> and adds it to the XML sequence element as a child.
+=end item
+
+=begin item
+B<C<method xml-deserialize-item(LibXML::Element:D $elem, LibXML::Class::ItemDescriptor:D $desc, UInt:D :$index, *%nameds)>>
+
+This method implements lazy deserialization of XML sequence item from XML element C<$elem>. C<$index> is the element
+position in the sequence.
+
+Returns deserialized value.
+=end item
+
+=head2 Cloning
+
+Cloning a deserialized object isn't a trivial task, especiall when lazy operations are in effect. A custom C<clone>
+method overrides Raku's default which does some preparation before calling the parent method. When done C<post-clone>
+method gets invoked. The default post-clone procedure includes registering a new deserialization for the source XML
+element.
+
+=head1 SEE ALSO
+
+=item L<I<README>|../../../../README>
+=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+
+=head1 COPYRIGHT
+
+(c) 2023, Vadim Belman <vrurg@cpan.org>
+
+=head1 LICENSE
+
+Artistic License 2.0
+
+See the L<I<LICENSE>|../../../../LICENSE> file in this distribution.
 =end pod

@@ -55,8 +55,8 @@ See L<I<manual01.raku>|../../../../examples/manual01.raku> in the L<I<examples>|
 Not only classes but roles too can be declared as C<xml-element>. Depending on the way a role is used the effect could
 differ.
 
-Consuming an C<xml-element> role by a plain class turns it into a serializable explicit (see more on L<implicit/explicit
-declarations|#Implicit Or Explicit Declarations> below) class.
+Consuming an C<xml-element> role by a plain class turns it into a serializable explicit class. See more in the
+L<Implicit Or Explicit Declarations|#implicit-or-explicit-declarations> section about explicitness.
 
 Consuming such role by a C<xml-element> class would simply extend it with role's functionality while allowing the role
 to maintain control over some serialization aspects like, for example, namespaces.
@@ -66,16 +66,16 @@ See L<I<manual02.raku>|../../../../examples/manual02.raku> and L<I<manual03.raku
 =head2 API Naming
 
 The way L<C<LibXML::Class>|../Class.md> works in the above example is by adding a role to the type object C<xml-element>
-is used with. The role, in turn, adds a parent class C<LibXML::Class::XMLObject>. Normally these implementation details
-must not bother you, but they worth mentioning from the point of view that there is a lot of extra methods become
+trait is used with. With the role a parent class C<LibXML::Class::XMLObject> is added too. Normally these implementation
+details must not bother you, but they worth mentioning from the point of view that a lot of extra methods become
 available on the instances of C<xml-element> classes.
 
-In order to minimize possible conflicts or side effects, it's been taken into account that the XML standard prohibits
-node names starting with C<xml> prefix. Therefore almost every public or private method or attribute names, declared by
-C<LibXML::Class> classes or roles, are starting with C<xml->. Moreover, in some cases C<LibXML::Class> ignores all
-user attributes if they start with the same C<xml-> prefix.
+In order to minimize possible conflicts or side effects, it's been taken into account that the XML standard forbids node
+names that start with C<xml> prefix. Therefore nearly every method or attribute name, would it be public or private,
+declared by C<LibXML::Class> classes or roles, are starting with C<xml->. Moreover, in some cases of implicit actions
+taken by C<LibXML::Class> user attributes, starting same C<xml-> prefix, are skipped and wouldn't be de-/serialized.
 
-There is only two exceptions: methods C<to-xml> and C<from-xml>, but these are rather part of more common convention
+There are only two exceptions: methods C<to-xml> and C<from-xml>, but these are rather part of more common convention
 within Raku ecosystem. Besides, it'd be ugly to have a call like C<$obj.xml-to>.
 
 =head2 Some Terminology
@@ -83,24 +83,23 @@ within Raku ecosystem. Besides, it'd be ugly to have a call like C<$obj.xml-to>.
 =begin item
 B<Basic types>
 
-As very rough first approach we can say that for L<C<LibXML::Class>|../Class.md> a basic type is the one which trivially
-stringifies and into which we can trivially coerce from a string. These include
+As a very rough first approach we can say that for L<C<LibXML::Class>|../Class.md> a basic type is the one which
+trivially stringifies and into which we can trivially coerce from a string. These include
 L<C<Numeric>|https://docs.raku.org/type/Numeric>, L<C<Stringy>|https://docs.raku.org/type/Stringy>,
 L<C<Dateish>|https://docs.raku.org/type/Dateish>, and L<C<Enumeration>|https://docs.raku.org/type/Enumeration> consuming
-types; L<C<Bool>|https://docs.raku.org/type/Bool>, L<C<Mu>|https://docs.raku.org/type/Mu>, and
+types; also L<C<Bool>|https://docs.raku.org/type/Bool>, L<C<Mu>|https://docs.raku.org/type/Mu>, and
 L<C<Any>|https://docs.raku.org/type/Any>.
 
-Depending on the context, non-basic types could be called I<'complex'>, I<'user defined'>, etc.
+Depending on the context, terms I<'complex'>, I<'user defined'>, or alike can be used toward non-basic types.
 =end item
 
 =begin item
 B<XMLized> type object
 
 A type object which can be XML de-/serialized. In technical terms of L<C<LibXML::Class>|../Class.md> this means it
-consumes C<LibXML::Class::XMLRepresentation> role. This term bears slightly different meaning to that of
-I<'C<xml-element> type object'> because the latter is only about classes of roles with C<xml-element> trait applied,
-whereas an XMLization also about implicitly converted classes like in the abovementioned case of consuming an
-C<xml-element> role.
+consumes C<LibXML::Class::XMLRepresentation> role. Being XMLized means slightly different thing than I<'C<xml-element>
+type object'> because the latter is only about classes or roles with C<xml-element> trait applied, whereas XMLization
+also applies to implicitly converted classes like in the abovementioned case of consuming an C<xml-element> role.
 =end item
 
 =begin item
@@ -112,11 +111,11 @@ element is a L<C<Positional>|https://docs.raku.org/type/Positional> (in terms of
 
 =begin code :lang<raku>
 <my-seq>
-  <rec1>val1</rec1>
-  <rec2 value="foo1" />
-  <rec2 value="foo2" />
-  <rec1>val2</rec1>
-  <rec1>val1</rec1>
+  <rec1>val1</rec1>      <!-- #0 -->
+  <rec2 value="foo1" />  <!-- #1 -->
+  <rec2 value="foo2" />  <!-- #2 -->
+  <rec1>val2</rec1>      <!-- #3 -->
+  <rec1>val1</rec1>      <!-- #4 -->
 </my-seq>
 =end code
 =end item
@@ -125,14 +124,14 @@ element is a L<C<Positional>|https://docs.raku.org/type/Positional> (in terms of
 B<Value element>
 
 An XML element representing a value. The most typical cases are C«<amount val="42.12"/>» and C«<amount>42.12</amount>».
-In more complex cases when the value, represented by the element, is not of a basic type the element may has more
+In more complex cases, when the value, represented by the element, is not of a basic type, the element could has more
 attributes and child elements.
 =end item
 
 =begin item
 B<XML container>, B<XML containerization>
 
-An XML element wrapping around value elemnt or series of elements. For example:
+It is the XML element wrapped around a value element, or series of elements. For example:
 
 =begin code :lang<raku>
 <container>
@@ -140,8 +139,8 @@ An XML element wrapping around value elemnt or series of elements. For example:
 </container>
 =end code
 
-A container is serialized from single argument and, correspondigly, deserialize into single argument. I.e. the above
-example would end up as value I<42> in C<$.val-element>.
+A container is serialized from a single entity and, correspondigly, deserialize into a single one too. I.e. the above
+example could end up as value I<42> in C<$.val-element>.
 =end item
 
 =begin item
@@ -153,13 +152,22 @@ representations. For every such entity a descriptor gets created which contains 
 the object.
 =end item
 
+=begin item
+B<Declarant>
+
+Used in the context of descriptors primarily. A type object which declares a Raku attribute of a sequence item.
+=end item
+
 =head2 Exported Traits
 
-L<C<LibXML::Class>|../Class.md> exports just three traits to mark Raku objects as XML-serializable:
+L<C<LibXML::Class>|../Class.md> exports three traits to mark Raku objects as XML-serializable:
 
-=item The aforementioned C<xml-element> to produce an XML element, applicable to type objects and attributes
+=item The aforementioned C<xml-element> for the entities (type object or attributes) that correspond to XML elements
 =item C<xml-attribute>, which can only be used with class/role attributes, to result in an XML element attribute
-=item C<xml-text> is also a Raku attribute-only trait which can only be used once per object
+=item C<xml-text> is also a Raku attribute-only trait for I<#text>; there can only be single such attribute per object
+
+I<Note> that an C<xml-text> Raku attribute is not limited to stringy types only. It can be of any type for each either
+coercion from L<C<Str>|https://docs.raku.org/type/Str> is implemented or custom de-/serializers are defined.
 
 For example:
 
@@ -175,9 +183,10 @@ say Record.new(:attr<something>, :content("line1\nline2")).to-xml;
 # line2</Record>
 =end code
 
-Both C<xml-element> and C<xml-attribute> share similar signatures: C«<trait>(Str:D $name?, *%named)» – where C<$name> is
-element/attribute name to be used. If omitted then see the section L<XML Nodes Naming Conventions> below. The allowed
-named arguments vary depending on the context and object a trait is applied to.
+Both C<xml-element> and C<xml-attribute> traits share similar signatures: C«:(Str:D $name?, *%named)» – where C<$name>
+is element/attribute name to be used for XML representation. If omitted then see the section L<XML Nodes Naming
+Conventions|#xml-nodes-naming-convention> below. The allowed named arguments vary depending on the context and object
+the trait is applied to.
 
 C<xml-text> doesn't take any positional argument but also shares a few named ones with the other two traits.
 
@@ -188,11 +197,11 @@ C<xml-attribute> and C<xml-element> traits.
 
 For C<xml-attribute> everything is simple:
 
-=item if an explicit name is provided as trait only positional this name is used
-=item otherwise attribute base name (with no sigil and twigil) is taken
+=item if an explicit name is provided as trait's only positional argument then this name is used
+=item otherwise attribute's base name (with no sigil and twigil) is taken
 
-Things are somewhat less simple for C<xml-element>. First of all, looking ahead, let us mention that when serializaing
-an attribute as XML element it's possible to specifiy that we want it to be wrapped into a special tag we call
+Things are somewhat less simple for C<xml-element>. First of all, looking ahead, let's mention that when serializaing
+an attribute as XML element it is possible to specifiy that we want it to be wrapped into a special tag we call
 'container'. L<Containerization|#Containers> will have its own section down below in this manual, so for now we
 just need to know about it.
 
@@ -204,8 +213,8 @@ just need to know about it.
 =item2 if attribute's value type is an C<xml-element> then it's name is taken
 =item2 if the type is not an C<xml-element> then its short name (C<.^shortname>) is used
 
-There is a case if sequential C<xml-element> classes where child items of corresponding XML element are to be somehow
-named too. But they basically follow the same rules except they cannot be containerized.
+When an C<xml-element> type object is an XML sequence we would also need to give names to its items. The rules for them
+are basically the same as for attributes with the only exception that items cannot be containerized.
 
 =head3 Type Object C<xml-element> Named Arguments
 
@@ -215,7 +224,7 @@ When C<xml-element> is used with a class or a role the following named arguments
 C<:implicit>
 
 A boolean specifying if typeobject arguments are to be implicitly serialized. Can be negated. See the section
-L<Implicit Or Explicit Declarations>.
+L<Implicit Or Explicit Declarations|#implicit-or-explicit-declarations>.
 =end item
 
 =begin item
@@ -225,29 +234,30 @@ A boolean, turn on or off lazy deserialization.
 =end item
 
 =begin item
-C<:ns>
+C<:namespace(...)> or C<:ns(...)>
 
-This argument is in charge of XML namespaces. See the section L<Namespaces|#Namespaces>.
+This argument is in charge of XML namespaces. See the L<Namespaces|#Namespaces> section.
 =end item
 
 =begin item
 C<:impose-ns>
 
-If this boolean is I<True> then any attribute not having its own C<:ns> argument would use namespaces of its parent
-typeobject serialization. See the section L<Namespaces|#Namespaces>.
+If this boolean is I<True> then any attribute not having its own C<:ns> argument would use defaults for namespaces of
+its declarant. See the L<Namespaces|#Namespaces> section.
 =end item
 
 =begin item
 C<:sequence>
 
-This argument makes the type object serializing into an XML sequence. See more details in L<XML Sequence Objects>.
+This argument turns the type object into an XML sequence. See more details in L<XML Sequence
+Objects|#xml-sequence-objects>.
 =end item
 
 =begin item
 C<:any>
 
-This boolen only makes sense when used with C<:sequence>. It allows very flexible way of defining and determening
-sequence items value types.
+This boolen only makes sense when used with a C<:sequence> argument. It allows very flexible way of defining and
+determening sequence items value types. See the L<XML:any|#xmlany> section.
 =end item
 
 When C<xml-element> is used with a class more named arguments become available:
@@ -272,7 +282,7 @@ All three attribute traits: C<xml-element>, C<xml-attribute>, and C<xml-text> �
 =begin item
 C<:lazy>
 
-Enforce lazy deserialization for the attribute.
+Boolean, enforce lazy deserialization for the attribute.
 =end item
 
 =begin item
@@ -284,7 +294,7 @@ User provided serialization/deserialization.
 The following arguments are shared by C<xml-element> and C<xml-attribute>:
 
 =begin item
-C<:ns(...)>, C<:ns>
+C<:namespace(...)>, C<:namespace>, or as C<:ns> alias
 
 This argument defines what namespaces are to used with XML node serialized from the attribute. See the
 L<Namespaces|#Namespaces> section.
@@ -293,32 +303,43 @@ L<Namespaces|#Namespaces> section.
 =begin item
 C<:derive>
 
-Boolean that controls namespace deriving for the attribute.
+Boolean that controls namespace deriving for individual attribute.
 =end item
 
 The following arguments are specific to C<xml-element>:
 
 =begin item
-C<:value-attr(Str:D)>/C<:attr(Str:D)>
+C<:value-attr(Str:D)> or C<:attr(Str:D)> alias
 
 Normally a basic type would serialize into an XML element with C<#text> node representing its value. With this argument
-an XML attribute would be used instead of a C<#text>. For example, with C«:value-attr<val>» C<$.bar> for an example
+an XML attribute would be used instead of C<#text>. For example, with C«:value-attr<val>» C<$.bar> in the example
 above would become C«<bar val="bar value"/>».
 =end item
 
 =begin item
 C<:any>
 
-Marks attribute as I<XML:any>, making it possible to deserialize corresponding element into various Raku types. See
-the L<XML:any> section.
+Marks attribute as L<XML:any|#xmlany>.
 =end item
 
 =begin item
 C<:container(Str:D|Bool:D)>
 
-Marks the attribute as XML-containerized. If given a string value like C«:container<container>» then it defines
+Marks the attribute as XML-containerized. If given a string value like C«:container<celem>» then it defines
 container XML element name at the same time. See the L<Containers|#Containers> section.
 =end item
+
+=head3 Parameter Application Order
+
+Since some of trait parameters are overlapping the question of priorities arises. There is nothing complex here as the
+rule of thumb says: attribute or sequence item is the head of its all. So, if in doubt – set it on the attribute/item.
+
+If a parameter is not explicitly specified for the attribute/item the module check up with either its declarant or its
+target type, if the target is an C<xml-element>. Which one is used depends on the particular parameter and mostly it's
+rather intuitive to guess.
+
+The configuration's advise could be used when none of the above provides a concrete answer. For example, when finding
+out about lazy deserialization C<LibXML::Class> may refer to config's C<eager> parameter.
 
 =head2 Implicit Or Explicit Declarations
 
@@ -1238,16 +1259,16 @@ Please, submit bugs or pull requests to https://github.com/vrurg/raku-LibXML-Cla
 
 =head1 SEE ALSO
 
-=item L<README|../../../../README.md>
+=item L<I<README>|../../../../README>
 =item L<C<LibXML::Class>|../Class.md>
 
-=head1 AUTHOR
+=head1 COPYRIGHT
 
-Vadim Belman <vrurg@cpan.org>
+(c) 2023, Vadim Belman <vrurg@cpan.org>
 
 =head1 LICENSE
 
 Artistic License 2.0
 
-See the LICENSE file in this distribution.
+See the L<I<LICENSE>|../../../../LICENSE> file in this distribution.
 =end pod

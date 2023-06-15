@@ -1,0 +1,119 @@
+=begin pod
+=head1 NAME
+C<LibXML::Class::Document> - document object
+=head1 DESCRIPTION
+
+The concept of C<LibXML::Class> document is mostly covered in L<C<LibXML::Class::Manual>|Manual.md>.
+
+=head2 Attributes
+
+=begin item
+B<C<LibXML::Document $.libxml-document>>
+
+The instance of deserialized L<C<LibXML>|https://modules.raku.org/dist/LibXML> document.
+=end item
+
+=begin item
+B<C<LibXML::Class::Config:D $.config>>
+
+An instance of C<LibXML::Class> configuration object. Defaults to the global singleton.
+=end item
+
+=head2 Methods
+
+=begin item
+B<C<proto method parse(|)>>
+
+=begin item
+B<C<multi method parse(::?CLASS:U: LibXML::Class::Config :$config, |args)>>
+
+This methods creates a new instance of C<LibXML::Class::Document> using either the provided C<$config>, or the global
+singleton. Then C<$config.libxml-config> is used to get the class of C<LibXML> document using C<class-from> method and
+then call C<parse> method on the class with arguments in C<args>.
+
+At the end a new C<LibXML::Class> document is created using the parsed C<LibXML> document and the config object.
+=end item
+
+=begin item
+B<C<multi method parse(::?CLASS:D: |args)>>
+
+Create a new C<$.libxml-document> by using C<$.config.libxml-config> and calling method C<parse> with arguments in
+C<args>.  Returns the invocator.
+=end item
+=end item
+
+=begin item
+B<C<method add-deserialization(LibXML::Class::XML:D $deserialization)>>
+
+Unless disabled by the configuration, adds C<$deserialization> to the document registry for fast hash-indexed search.
+=end item
+
+=begin item
+B<C<proto method has-deserialization(|)>>
+
+=begin item
+B<C<multi method has-deserialization(LibXML::Element:D $element)>>
+
+Tells if there is an entry for the C<$element> in the global registry.
+=end item
+
+=begin item
+B<C<multi method has-deserialization(Str:D $unique-key)>>
+
+Tells if there is an entry for the C<$unique-key> in the global registry.
+=end item
+=end item
+
+=begin item
+B<C<method deserializations(LibXML::Element:D $element)>>
+
+Returns all deserializations registered for the C<$element>, or an empty list if there is none.
+=end item
+
+=begin item
+B<C<method remove-deserialization(LibXML::Class::XML:D $deserialization)>>
+
+Removes the C<$deserialization> from the global registry.
+=end item
+
+=begin item
+B<C<proto method find-deserializations(|)>>
+
+=begin item
+B<C<method find-deserializations(LibXML::Node:D $node)>>
+=end item
+=begin item
+B<C<method find-deserializations(Iterable:D $nodes)>>
+=end item
+
+Returns a list of deserializations for a C<$node> or multiple C<$nodes>. When lazy operations are on and a node is not
+deserialized yet then the method tries to determine the path to the node and deserialize it, possibly deserializing all
+its parents along the way.
+=end item
+
+=begin item
+B<C<method findnodes(|args)>>
+
+This is a wrapper method which first calls C<$.libxml-document.findnodes(|args)> and then sends all found nodes to
+the C<find-deserializations> method.
+
+Returns a C<LibXML::Class::X::Deserialization::NoBacking> L<C<Failure>|https://docs.raku.org/type/Failure> if there is
+no C<$.libxml-document> meaning that the object is not a result of deserialization.
+=end item
+
+=head1 SEE ALSO
+
+=item L<I<README>|../../../../README>
+=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class>|../Class.md>
+
+=head1 COPYRIGHT
+
+(c) 2023, Vadim Belman <vrurg@cpan.org>
+
+=head1 LICENSE
+
+Artistic License 2.0
+
+See the L<I<LICENSE>|../../../../LICENSE> file in this distribution.
+=end pod

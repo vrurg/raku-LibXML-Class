@@ -43,7 +43,7 @@ See [*manual01.raku*](../../../../examples/manual01.raku) in the [*examples*](..
 
 Not only classes but roles too can be declared as `xml-element`. Depending on the way a role is used the effect could differ.
 
-Consuming an `xml-element` role by a plain class turns it into a serializable explicit (see more on [implicit/explicit declarations](#Implicit Or Explicit Declarations) below) class.
+Consuming an `xml-element` role by a plain class turns it into a serializable explicit class. See more in the [Implicit Or Explicit Declarations](#implicit-or-explicit-declarations) section about explicitness.
 
 Consuming such role by a `xml-element` class would simply extend it with role's functionality while allowing the role to maintain control over some serialization aspects like, for example, namespaces.
 
@@ -52,24 +52,24 @@ See [*manual02.raku*](../../../../examples/manual02.raku) and [*manual03.raku*](
 API Naming
 ----------
 
-The way [`LibXML::Class`](../Class.md) works in the above example is by adding a role to the type object `xml-element` is used with. The role, in turn, adds a parent class `LibXML::Class::XMLObject`. Normally these implementation details must not bother you, but they worth mentioning from the point of view that there is a lot of extra methods become available on the instances of `xml-element` classes.
+The way [`LibXML::Class`](../Class.md) works in the above example is by adding a role to the type object `xml-element` trait is used with. With the role a parent class `LibXML::Class::XMLObject` is added too. Normally these implementation details must not bother you, but they worth mentioning from the point of view that a lot of extra methods become available on the instances of `xml-element` classes.
 
-In order to minimize possible conflicts or side effects, it's been taken into account that the XML standard prohibits node names starting with `xml` prefix. Therefore almost every public or private method or attribute names, declared by `LibXML::Class` classes or roles, are starting with `xml-`. Moreover, in some cases `LibXML::Class` ignores all user attributes if they start with the same `xml-` prefix.
+In order to minimize possible conflicts or side effects, it's been taken into account that the XML standard forbids node names that start with `xml` prefix. Therefore nearly every method or attribute name, would it be public or private, declared by `LibXML::Class` classes or roles, are starting with `xml-`. Moreover, in some cases of implicit actions taken by `LibXML::Class` user attributes, starting same `xml-` prefix, are skipped and wouldn't be de-/serialized.
 
-There is only two exceptions: methods `to-xml` and `from-xml`, but these are rather part of more common convention within Raku ecosystem. Besides, it'd be ugly to have a call like `$obj.xml-to`.
+There are only two exceptions: methods `to-xml` and `from-xml`, but these are rather part of more common convention within Raku ecosystem. Besides, it'd be ugly to have a call like `$obj.xml-to`.
 
 Some Terminology
 ----------------
 
   * **Basic types**
 
-    As very rough first approach we can say that for [`LibXML::Class`](../Class.md) a basic type is the one which trivially stringifies and into which we can trivially coerce from a string. These include [`Numeric`](https://docs.raku.org/type/Numeric), [`Stringy`](https://docs.raku.org/type/Stringy), [`Dateish`](https://docs.raku.org/type/Dateish), and [`Enumeration`](https://docs.raku.org/type/Enumeration) consuming types; [`Bool`](https://docs.raku.org/type/Bool), [`Mu`](https://docs.raku.org/type/Mu), and [`Any`](https://docs.raku.org/type/Any).
+    As a very rough first approach we can say that for [`LibXML::Class`](../Class.md) a basic type is the one which trivially stringifies and into which we can trivially coerce from a string. These include [`Numeric`](https://docs.raku.org/type/Numeric), [`Stringy`](https://docs.raku.org/type/Stringy), [`Dateish`](https://docs.raku.org/type/Dateish), and [`Enumeration`](https://docs.raku.org/type/Enumeration) consuming types; also [`Bool`](https://docs.raku.org/type/Bool), [`Mu`](https://docs.raku.org/type/Mu), and [`Any`](https://docs.raku.org/type/Any).
 
-    Depending on the context, non-basic types could be called *'complex'*, *'user defined'*, etc.
+    Depending on the context, terms *'complex'*, *'user defined'*, or alike can be used toward non-basic types.
 
   * **XMLized** type object
 
-    A type object which can be XML de-/serialized. In technical terms of [`LibXML::Class`](../Class.md) this means it consumes `LibXML::Class::XMLRepresentation` role. This term bears slightly different meaning to that of *'`xml-element` type object'* because the latter is only about classes of roles with `xml-element` trait applied, whereas an XMLization also about implicitly converted classes like in the abovementioned case of consuming an `xml-element` role.
+    A type object which can be XML de-/serialized. In technical terms of [`LibXML::Class`](../Class.md) this means it consumes `LibXML::Class::XMLRepresentation` role. Being XMLized means slightly different thing than *'`xml-element` type object'* because the latter is only about classes or roles with `xml-element` trait applied, whereas XMLization also applies to implicitly converted classes like in the abovementioned case of consuming an `xml-element` role.
 
   * **XML sequence**, **XML sequential**
 
@@ -77,21 +77,21 @@ Some Terminology
 
     ```raku
     <my-seq>
-      <rec1>val1</rec1>
-      <rec2 value="foo1" />
-      <rec2 value="foo2" />
-      <rec1>val2</rec1>
-      <rec1>val1</rec1>
+      <rec1>val1</rec1>      <!-- #0 -->
+      <rec2 value="foo1" />  <!-- #1 -->
+      <rec2 value="foo2" />  <!-- #2 -->
+      <rec1>val2</rec1>      <!-- #3 -->
+      <rec1>val1</rec1>      <!-- #4 -->
     </my-seq>
     ```
 
   * **Value element**
 
-    An XML element representing a value. The most typical cases are `<amount val="42.12"/>` and `<amount>42.12</amount>`. In more complex cases when the value, represented by the element, is not of a basic type the element may has more attributes and child elements.
+    An XML element representing a value. The most typical cases are `<amount val="42.12"/>` and `<amount>42.12</amount>`. In more complex cases, when the value, represented by the element, is not of a basic type, the element could has more attributes and child elements.
 
   * **XML container**, **XML containerization**
 
-    An XML element wrapping around value elemnt or series of elements. For example:
+    It is the XML element wrapped around a value element, or series of elements. For example:
 
     ```raku
     <container>
@@ -99,22 +99,28 @@ Some Terminology
     </container>
     ```
 
-    A container is serialized from single argument and, correspondigly, deserialize into single argument. I.e. the above example would end up as value *42* in `$.val-element`.
+    A container is serialized from a single entity and, correspondigly, deserialize into a single one too. I.e. the above example could end up as value *42* in `$.val-element`.
 
   * **Descriptors**
 
     Whenever we declare an `xml-element` type object we need to tell the module what subsidiary entities of the type object are de-/serializable too. There are currently two kinds of them: Raku attributes and items of an XML sequence representations. For every such entity a descriptor gets created which contains all information necessary to deal with the object.
 
+  * **Declarant**
+
+    Used in the context of descriptors primarily. A type object which declares a Raku attribute of a sequence item.
+
 Exported Traits
 ---------------
 
-[`LibXML::Class`](../Class.md) exports just three traits to mark Raku objects as XML-serializable:
+[`LibXML::Class`](../Class.md) exports three traits to mark Raku objects as XML-serializable:
 
-  * The aforementioned `xml-element` to produce an XML element, applicable to type objects and attributes
+  * The aforementioned `xml-element` for the entities (type object or attributes) that correspond to XML elements
 
   * `xml-attribute`, which can only be used with class/role attributes, to result in an XML element attribute
 
-  * `xml-text` is also a Raku attribute-only trait which can only be used once per object
+  * `xml-text` is also a Raku attribute-only trait for *#text*; there can only be single such attribute per object
+
+*Note* that an `xml-text` Raku attribute is not limited to stringy types only. It can be of any type for each either coercion from [`Str`](https://docs.raku.org/type/Str) is implemented or custom de-/serializers are defined.
 
 For example:
 
@@ -130,7 +136,7 @@ say Record.new(:attr<something>, :content("line1\nline2")).to-xml;
 # line2</Record>
 ```
 
-Both `xml-element` and `xml-attribute` share similar signatures: `<trait>(Str:D $name?, *%named)` – where `$name` is element/attribute name to be used. If omitted then see the section [XML Nodes Naming Conventions](XML Nodes Naming Conventions) below. The allowed named arguments vary depending on the context and object a trait is applied to.
+Both `xml-element` and `xml-attribute` traits share similar signatures: `:(Str:D $name?, *%named)` – where `$name` is element/attribute name to be used for XML representation. If omitted then see the section [XML Nodes Naming Conventions](#xml-nodes-naming-convention) below. The allowed named arguments vary depending on the context and object the trait is applied to.
 
 `xml-text` doesn't take any positional argument but also shares a few named ones with the other two traits.
 
@@ -140,11 +146,11 @@ The order in which a XML node gets its name is defined by the rules in this sect
 
 For `xml-attribute` everything is simple:
 
-  * if an explicit name is provided as trait only positional this name is used
+  * if an explicit name is provided as trait's only positional argument then this name is used
 
-  * otherwise attribute base name (with no sigil and twigil) is taken
+  * otherwise attribute's base name (with no sigil and twigil) is taken
 
-Things are somewhat less simple for `xml-element`. First of all, looking ahead, let us mention that when serializaing an attribute as XML element it's possible to specifiy that we want it to be wrapped into a special tag we call 'container'. [Containerization](#Containers) will have its own section down below in this manual, so for now we just need to know about it.
+Things are somewhat less simple for `xml-element`. First of all, looking ahead, let's mention that when serializaing an attribute as XML element it is possible to specifiy that we want it to be wrapped into a special tag we call 'container'. [Containerization](#Containers) will have its own section down below in this manual, so for now we just need to know about it.
 
   * if an explicit name is provided as trait's positional argument then it is used
 
@@ -160,7 +166,7 @@ Things are somewhat less simple for `xml-element`. First of all, looking ahead, 
 
     * if the type is not an `xml-element` then its short name (`.^shortname`) is used
 
-There is a case if sequential `xml-element` classes where child items of corresponding XML element are to be somehow named too. But they basically follow the same rules except they cannot be containerized.
+When an `xml-element` type object is an XML sequence we would also need to give names to its items. The rules for them are basically the same as for attributes with the only exception that items cannot be containerized.
 
 ### Type Object `xml-element` Named Arguments
 
@@ -168,27 +174,27 @@ When `xml-element` is used with a class or a role the following named arguments 
 
   * `:implicit`
 
-    A boolean specifying if typeobject arguments are to be implicitly serialized. Can be negated. See the section [Implicit Or Explicit Declarations](Implicit Or Explicit Declarations).
+    A boolean specifying if typeobject arguments are to be implicitly serialized. Can be negated. See the section [Implicit Or Explicit Declarations](#implicit-or-explicit-declarations).
 
   * `:lazy`
 
     A boolean, turn on or off lazy deserialization.
 
-  * `:ns`
+  * `:namespace(...)` or `:ns(...)`
 
-    This argument is in charge of XML namespaces. See the section [Namespaces](#Namespaces).
+    This argument is in charge of XML namespaces. See the [Namespaces](#Namespaces) section.
 
   * `:impose-ns`
 
-    If this boolean is *True* then any attribute not having its own `:ns` argument would use namespaces of its parent typeobject serialization. See the section [Namespaces](#Namespaces).
+    If this boolean is *True* then any attribute not having its own `:ns` argument would use defaults for namespaces of its declarant. See the [Namespaces](#Namespaces) section.
 
   * `:sequence`
 
-    This argument makes the type object serializing into an XML sequence. See more details in [XML Sequence Objects](XML Sequence Objects).
+    This argument turns the type object into an XML sequence. See more details in [XML Sequence Objects](#xml-sequence-objects).
 
   * `:any`
 
-    This boolen only makes sense when used with `:sequence`. It allows very flexible way of defining and determening sequence items value types.
+    This boolen only makes sense when used with a `:sequence` argument. It allows very flexible way of defining and determening sequence items value types. See the [XML:any](#xmlany) section.
 
 When `xml-element` is used with a class more named arguments become available:
 
@@ -206,7 +212,7 @@ All three attribute traits: `xml-element`, `xml-attribute`, and `xml-text` – s
 
   * `:lazy`
 
-    Enforce lazy deserialization for the attribute.
+    Boolean, enforce lazy deserialization for the attribute.
 
   * `:&serializer`, `:&deserializer`
 
@@ -214,27 +220,35 @@ All three attribute traits: `xml-element`, `xml-attribute`, and `xml-text` – s
 
 The following arguments are shared by `xml-element` and `xml-attribute`:
 
-  * `:ns(...)`, `:ns`
+  * `:namespace(...)`, `:namespace`, or as `:ns` alias
 
     This argument defines what namespaces are to used with XML node serialized from the attribute. See the [Namespaces](#Namespaces) section.
 
   * `:derive`
 
-    Boolean that controls namespace deriving for the attribute.
+    Boolean that controls namespace deriving for individual attribute.
 
 The following arguments are specific to `xml-element`:
 
-  * `:value-attr(Str:D)`/`:attr(Str:D)`
+  * `:value-attr(Str:D)` or `:attr(Str:D)` alias
 
-    Normally a basic type would serialize into an XML element with `#text` node representing its value. With this argument an XML attribute would be used instead of a `#text`. For example, with `:value-attr<val>` `$.bar` for an example above would become `<bar val="bar value"/>`.
+    Normally a basic type would serialize into an XML element with `#text` node representing its value. With this argument an XML attribute would be used instead of `#text`. For example, with `:value-attr<val>` `$.bar` in the example above would become `<bar val="bar value"/>`.
 
   * `:any`
 
-    Marks attribute as *XML:any*, making it possible to deserialize corresponding element into various Raku types. See the [XML:any](XML:any) section.
+    Marks attribute as [XML:any](#xmlany).
 
   * `:container(Str:D|Bool:D)`
 
-    Marks the attribute as XML-containerized. If given a string value like `:container<container>` then it defines container XML element name at the same time. See the [Containers](#Containers) section.
+    Marks the attribute as XML-containerized. If given a string value like `:container<celem>` then it defines container XML element name at the same time. See the [Containers](#Containers) section.
+
+### Parameter Application Order
+
+Since some of trait parameters are overlapping the question of priorities arises. There is nothing complex here as the rule of thumb says: attribute or sequence item is the head of its all. So, if in doubt – set it on the attribute/item.
+
+If a parameter is not explicitly specified for the attribute/item the module check up with either its declarant or its target type, if the target is an `xml-element`. Which one is used depends on the particular parameter and mostly it's rather intuitive to guess.
+
+The configuration's advise could be used when none of the above provides a concrete answer. For example, when finding out about lazy deserialization `LibXML::Class` may refer to config's `eager` parameter.
 
 Implicit Or Explicit Declarations
 ---------------------------------
@@ -904,19 +918,19 @@ Please, submit bugs or pull requests to https://github.com/vrurg/raku-LibXML-Cla
 SEE ALSO
 ========
 
-  * [README](../../../../README.md)
+  * [*README*](../../../../README)
 
   * [`LibXML::Class`](../Class.md)
 
-AUTHOR
-======
+COPYRIGHT
+=========
 
-Vadim Belman <vrurg@cpan.org>
+(c) 2023, Vadim Belman <vrurg@cpan.org>
 
 LICENSE
 =======
 
 Artistic License 2.0
 
-See the LICENSE file in this distribution.
+See the [*LICENSE*](../../../../LICENSE) file in this distribution.
 

@@ -1,0 +1,70 @@
+=begin pod
+=head1 NAME
+C<LibXML::Class::NS> - base role for namespace-aware classes
+
+=head1 DESCRIPTION
+
+This role implements the most basic namespace functionality which includes:
+
+=item default namespace value
+=item default namespace prefix value
+=item map of namespace prefixes into namespaces
+
+=head2 Attributes
+
+=begin item
+B<C<Str $.xml-default-ns>>
+
+The default namespace value, when set.
+=end item
+
+=begin item
+B<C<Str $.xml-default-ns-pfx>>
+
+The default namespace prefix, when set.
+=end item
+
+=begin item
+B<C<OHash:D $.xml-namespaces>>
+
+An ordered hash of namespace prefix values. C<OHash> is an internal implementation provided by
+L<C<LibXML::Class::Types>|Types.md>.
+=end item
+
+=head3 Methods
+
+=begin item
+B<C<method xml-set-ns-from-defs($ns-defs, Bool:D :$override = True)>>
+
+This method sets up namespace information from declarations in C<$ns-defs>, as described in
+L<C<LibXML::Class::Manual>|Manual.md>, where named argument C<:namespace> (or C<:ns>) is described.
+=end item
+
+=begin item
+B<C<method xml-guess-default-ns(LibXML::Node :$resolve)>>
+
+This method does the most basic job in trying to find out what namespace applies to the object. It is using only the
+information provided by the object itself. When guessing C<$.xml-default-ns> is ignored if C<$.xml-default-ns-pfx> is
+set. And if the prefix cannot be resolved using the local definitions in C<$.xml-namespaces> then it tries to use the
+C<$resolve> parameter, if provided.
+
+When no namespace can be found a L<C<Failure>|https://docs.raku.org/type/Failure> is returned wrapped around
+C<LibXML::Class::X::NS::Prefix> exception.
+=end item
+
+=head1 SEE ALSO
+
+=item L<I<README>|../../../../README>
+=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class>|../Class.md>
+
+=head1 COPYRIGHT
+
+(c) 2023, Vadim Belman <vrurg@cpan.org>
+
+=head1 LICENSE
+
+Artistic License 2.0
+
+See the L<I<LICENSE>|../../../../LICENSE> file in this distribution.
+=end pod

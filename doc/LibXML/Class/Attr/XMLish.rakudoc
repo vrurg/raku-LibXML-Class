@@ -1,0 +1,68 @@
+=begin pod
+=head1 NAME
+C<LibXML::Class::Attr::XMLish> - base role of all attribute L<C<descriptors|../Descriptor.md>>
+=head1 DESCRIPTION
+
+=head2 Attributes
+
+=begin item
+B<C<Attribute:D $.attr>>
+
+The Raku attribute of this descriptor.
+=end item
+
+=begin item
+B<C<Bool $.lazy>>
+
+If this attribute must be lazily deserialized. Note that if not explicitly set then laziness flags of this attribute
+would be computed based on attribute's type and L<C<LibXML::Class::Config>|../Config.md> C<eage> parameter.
+=end item
+
+=begin item
+B<C<Mu:U $.value-type>>
+
+What an XML representation would be deserialized into? For L<C<Positional>|https://docs.raku.org/type/Positional> or
+L<C<Associative>|https://docs.raku.org/type/Associative> attributes this is the type provided by C<$.attr.type.of>.
+
+B<Note> that to be considered positional or associative the attribute must have corresponding sigil. Say,
+C<has Positional $.foo> is not positional for C<LibXML::Class>.
+=end item
+
+=begin item
+B<C<Mu:U $.nominal-type>>
+
+Nominalization of C<$.value-type>.
+=end item
+
+=head2 Methods
+
+=begin item
+B<C<method sigil()>>
+
+Attribute's sigil.
+=end item
+
+=head2 Required Methods
+
+=begin item
+B<C<method kind(--> Str:D) {...}>>
+
+Return the most concise description of attribute descriptor. For example, I<"value element">.
+=end item
+
+=head1 SEE ALSO
+
+=item L<I<README>|../../../../README>
+=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class>|../Class.md>
+
+=head1 COPYRIGHT
+
+(c) 2023, Vadim Belman <vrurg@cpan.org>
+
+=head1 LICENSE
+
+Artistic License 2.0
+
+See the L<I<LICENSE>|../../../../LICENSE> file in this distribution.
+=end pod

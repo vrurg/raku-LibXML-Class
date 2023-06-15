@@ -1,0 +1,222 @@
+=begin pod
+=head1 NAME
+C<LibXML::Class::Config> – configure C<LibXML::Class> de-/serialization process
+
+=head1 SYNOPSIS
+
+=begin code :lang<raku>
+use LibXML::Class::Config :types;
+
+my $config = LibXML::Class::Config.new: :eager, :severity(STRICT); # Disable lazy opeations
+
+my $deserialization = MyXMLRepresentation.from-xml: $xml-source, :$config;
+=end code
+
+Or:
+
+=begin code :lang<raku>
+my $deserialization = MyXMLRepresentation.from-xml: $xml-source, config => %( :eager, :severity<STRICT> );
+=end code
+
+=head1 DESCRIPTION
+
+Topics, related to configuring your C<LibXML::Class> operations are mainly covered in
+L<C<LibXML::Class::Manual>|Manual.md>. Here only a few technical details are covered.
+
+=head2 Exported Types
+
+With C<use LibXML::Class::Config :types;> statement auxiliary configuration type objects are exported into the user's
+namespace. Though for the moment only one such type is available, C<SerializeSeverity>. It is an enum providing values
+for C<severity> parameter: C<EASY>, C<WARN>, and C<STRICT>.
+
+=head2 Configuration Parameters
+
+Configuration parameter values are held in attributes on C<LibXML::Class::Config> instance.
+
+=begin item
+B<C<SerializeSeverity:D $.severity = WARN>>
+
+Sometimes problems, occuring during de-serialization, are not necessarily fatal. Severity defines how C<LibXML::Class>
+reacts to them. When it is I<EASY> then errors a plain ignored; with I<WARN> they are reported and ignored; with
+I<FATAL> expections are thrown.
+
+When we create a new config object, or pass a configuration profile hash into methods, C<severity> key can be set to
+a string representation of one of these values.
+=end item
+
+=begin item
+B<C<Bool:D $.eager = False>>
+
+Turn off lazy operations. Doesn't apply to XML sequences.
+=end item
+
+=begin item
+B<C<Bool $.derive.attribute = False>>, B<C<Bool $.derive.element = False>>
+
+This parameter configures XML namespace deriving, as described in L<C<LibXML::Class::Manual>|Manual.md>.
+Can be set as a single value like, for example, C<:derive(True)>.
+=end item
+
+=begin item
+B<C<Bool:D $.deserialization-registry = True>>
+
+Enable or disable keeping registries of deserialized objects. Disabling it also means disabling search functionality.
+=end item
+
+=begin item
+B<C<Bool:D $.global-index = True>>
+
+If disabled then L<C<LibXML::Class::Document>|Document.md> object doesn't keep global index of deserialized C<xml-element>
+instances. This doesn't affect search capbilities, but may slow down them.
+=end item
+
+=begin item
+B<C<LibXML::Config:D $.libxml-config>>
+
+An instance of default C<LibXML::Config>.
+=end item
+
+=head2 Methods
+
+=begin item
+B<C<method document-class()>>
+
+Returns a class to be used to create a default document object. Normally it is L<C<LibXML::Class::Document>|Document.md>,
+but can be overriden when necessary.
+=end item
+
+=begin item
+B<C<method libxml-config-class()>>
+
+Returns a class for C<$.libxml-config> parameter. Normally it is the standard C<LibXML::Config>, but can be overriden.
+=end item
+
+=begin item
+B<C<method build-libxml-config()>>
+
+C<$.libxml-config> is an L<C<AttrX::Mooish>|https://modules.raku.org/dist/AttrX::Mooish> lazy and this method is its builder. By default it creates an instance of
+C<self.libxml-config-class()> with C<:with-cache> parameter set.
+=end item
+
+=begin item
+B<C<method global(*%c)>>
+
+When invoked for the first time it creates a singleton instance of C<LibXML::Class::Config> serving as the default for
+other instances of configuration. If any named argument is passed into the method at this point it is used to set a
+parameter; i.e. C<%c> serves as the constructor profile.
+
+Any subsequent call just returns the singleton. By then any attempt to pass an argument will cause
+C<LibXML::ClasS::X::Config::ImmutableGlobal> exception to be throw.
+=end item
+
+=begin item
+B<C<proto method alert($)>>
+
+=begin item
+B<C<multi method alert(Str:D $message)>>
+=end item
+=begin item
+B<C<multi method alert(Exception:D $exception)>>
+=end item
+
+Depending on what C<$.severity> is set to would either keep silence, or C<warn>, or throw the C<$exception>. If just
+a C<$message> submitted then it is wrapped into C<LibXML::Class::X::AdHoc> first.
+=end item
+
+=begin item
+B<C<proto method set-ns-map(|)>>
+
+This method is used to setup mapping between namespaces and types available for XML:any entities. More details are
+available in L<C<LibXML::Class::Manual>|Manual.md>. Here we only iterate over method candidates.
+
+Most of the candidates of this method are to provide flexibilty in the source data structure when declaring namespaces.
+For example, these are all the same:
+
+=begin code :lang<raku>
+LibXML::Class::Config.new: ns-map => %( 'ns' => { "elem-name" => ElemType, } );
+LibXML::Class::Config.new: ns-map => ( 'ns' => ( "elem-name" => ElemType, ) );
+LibXML::Class::Config.new: ns-map => ( ('ns', "elem-name", ElemType ), );
+=end code
+
+Depending on where one gets their information about the maps from, they can produce the most convenient input for the
+parameter.
+
+=begin item
+B<C<multi method set-ns-map(Str:D $namespace, Str:D $xml-name, Mu:U $type)>>
+
+This is the base candidate which adds a map for element named C<$xml-name> into C<$type> to the C<$namespace>. In the
+above example the last format matches directly into this candidate. With that format if you want to add more mappings
+then you'd need to repeat them individually:
+
+=begin code
+(
+    ('ns', "elem1", ElemType1),
+    ('ns', "elem2", ElemType2),
+)
+=end code
+=end item
+
+=begin item
+B<C<multi method set-ns-map(*%ns-map)>>
+
+Setup from named arguments.
+=end item
+
+=begin item
+B<C<multi method set-ns-map(%ns-map)>>
+
+Setup from a hash.
+=end item
+
+=begin item
+B<C<multi method set-ns-map(@ns-map)>>
+
+Setup from a list of entries.
+=end item
+
+=begin item
+B<C<multi method set-ns-map(Str:D $namespace, *@entries, *%map)>>
+
+Set for C<$namespace> using positional and named arguments as map entries.
+=end item
+
+=begin item
+B<C<multi method set-ns-map(LibXML::Class::Node:U $type)>>
+
+Add C<$type> using its default namespace and element name.
+=end item
+
+=begin item
+B<C<multi method set-ns-map(Str:D $namespace, LibXML::Class::Node:U $type)>>
+
+Similar to the previous candidate but override the namespace.
+=end item
+
+=begin item
+B<C<method set-ns-map(Str:D $namespace, Pair:D $entry)>>
+
+Add an individual C«<elem-name> => ElemType» entry for the C<$namespace>.
+=end item
+
+See examples of using C<ns-map> in L<I<manual09.raku>|../../../../examples/manual09.raku>,
+L<I<manual10.raku>|../../../../examples/manual10.raku>,
+L<I<040-basic-serialization.rakutest>|../../../../t/040-basic-serialization.rakutest>,
+L<I<050-sequential.rakutest>|../../../../t/050-sequential.rakutest>.
+=end item
+
+=head1 SEE ALSO
+
+=item L<I<README>|../../../../README>
+=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class>|../Class.md>
+
+=head1 COPYRIGHT
+
+(c) 2023, Vadim Belman <vrurg@cpan.org>
+
+=head1 LICENSE
+
+Artistic License 2.0
+
+See the L<I<LICENSE>|../../../../LICENSE> file in this distribution.
+=end pod

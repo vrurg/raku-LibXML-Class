@@ -1,0 +1,71 @@
+=begin pod
+=head1 NAME
+C<LibXML::Class::Node> - base role of types, that can be XML-named and aware of namespacing
+
+=head1 DESCRIPTION
+
+This role consumes L<C<LibXML::Class::NS>|NS.md>.
+
+=head2 Attributes
+
+=begin item
+B<C<Str:D $.xml-name>>
+
+A lazy attribute, initialized from a return value of C<xml-build-name> method. While the method is not explicitly
+required by the role (there are some compile-time issues arrise if it does), but it has to be implemented by a consuming
+class.
+=end item
+
+=head2 Methods
+
+=begin item
+B<C<method xml-has-name()>>
+
+A predicate, reporting if C<$.xml-name> has been initialized already.
+=end item
+
+=begin item
+B<C<method xml-apply-ns(LibXML::Element:D $dest-elem, Bool:D :$default = True, Str :namespace(:xml-default-ns(:$ns)),
+                        Str :xml-default-ns-pfx(:$prefix), :$config = $*LIBXML-CLASS-CONFIG)>>
+
+Assuming that current object is being serialized into C<$dest-elem> this method applies namespace information to the
+element, based on what is set for the object itself. This means:
+
+=item adding all prefix definitions from C<$.xml-namespaces> to the element
+=item finding out namespace default value and prefix
+=item resolving the previous values and setting them on the element
+
+Namespace default and prefix passed in as C<$ns> and C<$prefix> arguments would override what is set for the object
+itself even when just one is set. This is a common rule when defining either of two is considered as if both are set,
+even if the other one is undefined.
+
+If no namespace is explicitly passed in the arguments and C<$default> is I<True> the corresponding object attributes
+are taken.
+
+If the default namespace by now is set and is not empty then it's used as is. An empty one is resolved from
+C<$dest-elem> by looking up the empty prefix I<""> – this is how the default namespace is propagaded from parent XML
+elements.
+
+If the prefix is set we also try to resolve it first on the C<$dest-elem>. Don't forget that by now we've already
+applied all locally defined namespace prefixes to the element making the overall picture complete. If the prefix cannot
+be resolved then either C<$config.alert> is used to report the problem, or C<LibXML::Class::X::NS::Prefix> is thrown
+unconditionally. Resolved prefix gets added to the element too.
+=end item
+
+=head1 SEE ALSO
+
+=item L<I<README>|../../../../README>
+=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class>|../Class.md>
+=item L<C<LibXML::Class::NS>|NS.md>
+
+=head1 COPYRIGHT
+
+(c) 2023, Vadim Belman <vrurg@cpan.org>
+
+=head1 LICENSE
+
+Artistic License 2.0
+
+See the L<I<LICENSE>|../../../../LICENSE> file in this distribution.
+=end pod

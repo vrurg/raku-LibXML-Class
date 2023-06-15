@@ -1,0 +1,142 @@
+=begin pod
+=head1 NAME
+
+C<LibXML::Class::Descriptor> – base role for attribute and XML sequence items descriptors
+
+=head1 DESCRIPTION
+
+Descriptor is an object which provides all necessary information to de-/serialize an object stored in an attribute or
+an XML sequence item. Correspondingly, there are two kinds of descriptors: for attributes, and for sequence items. When
+we refer to them a common term I<entity> could be used where it doesn't matter what exactly a descriptor represents.
+
+Consumes L<C<LibXML::Class::Node>|Node.md>.
+
+=head2 Attributes
+
+=begin item
+B<C<&.serializer>>
+
+User-provided serializer code object.
+=end item
+
+=begin item
+B<C<&.deserializer>>
+
+User-provided deserializer code object.
+=end item
+
+=begin item
+B<C<Bool $.derive>>
+
+Flag, indicating that the entity must derve its namespace information.
+=end item
+
+=begin item
+B<C<Mu $.declarant>>
+
+The type object which declares the entity. Say, for:
+
+=begin code :lang<raku>
+class Foo is xml-element {
+    has $.attr is xml-element;
+}
+=end code
+
+C<Foo> is the declarant of C<$.attr>.
+=end item
+
+=head2 Methods
+
+=head3 Required by this role
+
+These methods must be implemented by the actual descriptor classes:
+
+=begin item
+B<C<method nominal-type>>
+
+Must return entitity's nominal type. Let's say we have a declaration of C<has Type:D() $.attr> somewhere. The nominal
+type of C<$.attr> would be C<Type>.
+=end item
+
+=begin item
+B<C<method value-type>>
+
+The type into which XML representation of this entity must deserialize into.
+=end item
+
+=begin item
+B<C<method config-derive>>
+
+Config parameter for namespace deriving for this particular kind of entity. See L<C<LibXML::Class::Config>|Config.md> and
+L<C<LibXML::Class::Manual>|Manual.md>.
+=end item
+
+=begin item
+B<C<method descriptor-kind>>
+
+Returns a string describing the current entity. The string can be used for error reporting, for example, or for debug
+printing.
+=end item
+
+=head3 API
+
+=begin item
+B<C<method has-serializer()>>
+
+Do we have a user-provided serializer?
+=end item
+
+=begin item
+B<C<method has-deserializer()>>
+
+Do we have a user-provided deserializer?
+=end item
+
+=begin item
+B<C<method serializer-cando(|args)>>
+
+Returns I<True> if user serializer is set and can be used with the C<args>.
+=end item
+
+=begin item
+B<C<method deserializer-cando(|args)>>
+
+Returns I<True> if user deserializer is set and can be used with the C<args>.
+=end item
+
+=begin item
+B<C<method infer-ns(Mu :$from, Str :$default-ns, Str :$default-pfx)>>
+
+Method tries to infer entity's default namespace and prefix. The rules of computing entity namespace are described
+in L<C<LibXML::Class::Manual>|Manual.md>.
+=end item
+
+=begin item
+B<C<method type-check(Mu \value, $when)>>
+
+Makes sure that the C<value> is type checking OK against the C<value-type>. If it doesn't then
+C<LibXML::Class::X::TypeCheck> is thrown.
+
+C<$when> is used for exception error message. If it is a L<C<Code>|https://docs.raku.org/type/Code> then the object gets
+called and the result is expected to be a string; otherwise the object is coerced into the
+L<C<Str>|https://docs.raku.org/type/Str> and then used. The code trick is useful for cases where generating a
+stringifiable value is too expensive and only worth doing at the moment when the actual exception is about to be thrown.
+=end item
+
+=head1 SEE ALSO
+
+=item L<I<README>|../../../../README>
+=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class>|../Class.md>
+=item L<C<LibXML::Class::Config>|Config.md>
+
+=head1 COPYRIGHT
+
+(c) 2023, Vadim Belman <vrurg@cpan.org>
+
+=head1 LICENSE
+
+Artistic License 2.0
+
+See the L<I<LICENSE>|../../../../LICENSE> file in this distribution.
+=end pod

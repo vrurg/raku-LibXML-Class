@@ -1,0 +1,29 @@
+=begin pod
+=head1 NAME
+C<LibXML::Class::Attr> - collection of attribute descriptors
+=head1 DESCRIPTION
+
+This module is a container for the following attribute descriptors:
+
+=item L<C<LibXML::Class::Attr::XMLAttribute>|Attr/XMLAttribute.md>
+=item L<C<LibXML::Class::Attr::XMLValueElement>|Attr/XMLValueElement.md>
+=item L<C<LibXML::Class::Attr::XMLPositional>|Attr/XMLPositional.md>
+=item L<C<LibXML::Class::Attr::XMLAssociative>|Attr/XMLAssociative.md>
+=item L<C<LibXML::Class::Attr::XMLTextNode>|Attr/XMLTextNode.md>
+
+=head1 SEE ALSO
+
+=item L<I<README>|../../../../README>
+=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class>|../Class.md>
+
+=head1 COPYRIGHT
+
+(c) 2023, Vadim Belman <vrurg@cpan.org>
+
+=head1 LICENSE
+
+Artistic License 2.0
+
+See the L<I<LICENSE>|../../../../LICENSE> file in this distribution.
+=end pod

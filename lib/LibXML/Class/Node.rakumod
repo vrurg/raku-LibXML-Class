@@ -50,12 +50,10 @@ method xml-apply-ns( ::?CLASS:D:
                 $dest-elem.setNamespace: $pfxNS, $prefix;
             }
             else {
-                if $config {
-                    $config.alert:
-                        LibXML::Class::X::NS::Prefix.new(
-                            :$prefix,
-                            :what("element <" ~ $dest-elem.name ~ ">"))
-                }
+                my $ex = LibXML::Class::X::NS::Prefix.new( :$prefix, :what("element <" ~ $dest-elem.name ~ ">"));
+                $config
+                    andthen .alert($ex)
+                    orelse  $ex.throw;
             }
         }
     }

@@ -310,7 +310,7 @@ my class Deserialize::Constructor does Deserialize {
 }
 
 my class Deserialize::Node does Deserialize {
-    has LibXML::Node:D $.node is required;
+    has LibXML::Node $.node;
 
     method message-node($node = $!node) {
         given $node {
@@ -341,12 +341,15 @@ my class Deserialize::DuplicateKey is Deserialize::Node {
 
 my class Deserialize::NoCtx is Deserialize::Node {
     method message {
-        "Deserialization of " ~ self.message-node
-        ~ " impossible, there is no deserialization context for an instance of " ~ $.type.^name ~ ": "
-        ~ ($.type.xml-class.^xml-is-lazy
-            ?? "looks like all lazies have been deserialized already"
-            !! "the type is not lazy"
-        )
+        (
+            ($.node
+                andthen "Deserialization of " ~ self.message-node ~ " is impossible, "
+                orelse "")
+            ~ "there is no deserialization context for an instance of " ~ $.type.^name ~ ": "
+            ~ ($.type.xml-class.^xml-is-lazy
+                ?? "looks like all lazies have been deserialized already"
+                !! "the type is not lazy"
+        )).tc
     }
 }
 

@@ -751,6 +751,7 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML does LibXML::Cl
     }
 
     method xml-lazy-deserialize-context(&code --> Mu) is raw {
+        LibXML::Class::X::Deserialize::NoCtx.new(:type(self.WHAT)) without $!xml-dctx;
         my $*LIBXML-CLASS-CTX = $!xml-dctx;
         my $*LIBXML-CLASS-CONFIG = $!xml-dctx.document.config;
         # Where there is no more lazies to deserialize we don't need the context object anymore.

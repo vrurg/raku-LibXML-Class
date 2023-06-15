@@ -1675,8 +1675,8 @@ class XMLSequence does Positional does Iterable {
     }
 
     method xml-deserialize-item( ::?CLASS:D:
-                                 LibXML::Class::ItemDescriptor:D $desc,
                                  LibXML::Element:D $node,
+                                 LibXML::Class::ItemDescriptor:D $desc,
                                  UInt:D :$index,
                                  Mu :$value-type is raw = NOT-SET,
                                  DeserializingCtx:D :$dctx = $*LIBXML-CLASS-CTX ) is raw
@@ -1765,7 +1765,7 @@ class XMLSequence does Positional does Iterable {
 
             self.xml-add-deserialization:
                 $node,
-                @!xml-items[$idx] := self.xml-deserialize-item($desc, $node, :$value-type, :index($idx))
+                @!xml-items[$idx] := self.xml-deserialize-item($node, $desc, :$value-type, :index($idx))
         }
     }
 

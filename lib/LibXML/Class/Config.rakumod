@@ -207,7 +207,7 @@ proto method set-ns-map(|) {*}
 
 multi method set-ns-map(LibXML::Class::Node:U $type) {
     with $type.HOW.xml-guess-default-ns {
-        samewith $_, $type.^xml-default-name, $type;
+        self.set-ns-map: $_, $type.^xml-default-name, $type;
     }
     else {
         LibXML::Class::X::Config::TypeNoNS.new(:$type).throw
@@ -218,39 +218,39 @@ multi method set-ns-map(Str:D $namespace, LibXML::Class::Node:U $type) {
     if ($type.HOW.xml-guess-default-ns andthen $namespace !~~ $_) {
         LibXML::Class::X::Config::NSMismatch.new(:$type, :$namespace).throw
     }
-    samewith $namespace, $type.^xml-default-name, $type
+    self.set-ns-map: $namespace, $type.^xml-default-name, $type
 }
 
 multi method set-ns-map(*%ns-map) {
-    samewith %ns-map
+    self.set-ns-map: %ns-map
 }
 
 multi method set-ns-map(%ns-map) {
     for %ns-map.kv -> Str:D $namespace, $entries {
         for $entries.List -> NSMapEntry $entry {
-            samewith $namespace, $entry
+            self.set-ns-map: $namespace, $entry
         }
     }
 }
 
 multi method set-ns-map(@ns-map) {
     for @ns-map -> $ns-map {
-        samewith(|$ns-map)
+        self.set-ns-map: |$ns-map
     }
 }
 
 multi method set-ns-map(Str:D $namespace, *@entries, *%map) {
     for @entries -> NSMapEntry $entry {
-        samewith $namespace, $entry;
+        self.set-ns-map: $namespace, $entry;
     }
 
     for %map.kv -> Str:D $xml-name, $type {
-        samewith $namespace, $xml-name, $type;
+        self.set-ns-map: $namespace, $xml-name, $type;
     }
 }
 
 multi method set-ns-map(Str:D $namespace, Pair:D $entry) {
-    samewith $namespace, $entry.key, $entry.value
+    self.set-ns-map: $namespace, $entry.key, $entry.value
 }
 
 multi method set-ns-map(Whatever, $, Mu:U $type) {

@@ -1152,7 +1152,7 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML does LibXML::Cl
                            LibXML::Element:D $node,
                            Str :ns(:xml-default-ns(:$namespace)),
                            Str :xml-default-ns-pfx(:$prefix)
-        --> LibXML::Element:D ) is implementation-detail
+        --> LibXML::Element:D )
     {
         self.xml-apply-ns( $node, :$namespace, :$prefix,
                            # Don't override default namespace and prefix if any of them is already set.

@@ -90,3 +90,7 @@ method xml-guess-default-ns(::?CLASS:D: LibXML::Node :$resolve) {
                     :what(self.^name),
                     :while('guessing default namespace'))
 }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

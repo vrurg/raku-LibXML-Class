@@ -137,3 +137,7 @@ class OHash does Associative does Iterable is export {
 }
 
 sub xml-implicit-value(Mu \value) is export { value but IsImplicitValue }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

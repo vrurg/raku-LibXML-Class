@@ -127,3 +127,7 @@ method xml-desc-for-type(Mu \obj, Mu $item --> Positional) {
     # No candidate descriptor found.
     Empty
 }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

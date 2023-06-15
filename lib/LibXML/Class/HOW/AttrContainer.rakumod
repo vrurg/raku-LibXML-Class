@@ -40,3 +40,7 @@ method xml-is-imposing-ns(Mu) is raw { $!xml-impose-ns }
 
 method xml-set-lazy(Mu, Bool:D $!xml-lazy) {}
 method xml-is-lazy(Mu) { $!xml-lazy }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

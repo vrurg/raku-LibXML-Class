@@ -12,3 +12,8 @@ method xml-set-explicit(Mu \obj, Bool:D $explicit) {
 method xml-is-explicit(Mu) {
     ?$!explicit
 }
+
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

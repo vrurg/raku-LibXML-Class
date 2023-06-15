@@ -15,3 +15,7 @@ method xml-name(Mu $?) {
 method xml-default-name(Mu \obj) {
     $!xml-name // obj.^shortname
 }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

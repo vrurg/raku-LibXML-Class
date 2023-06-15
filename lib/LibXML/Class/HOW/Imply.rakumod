@@ -44,3 +44,7 @@ method xml-imply-attributes(Mu \obj, Bool:D :$local = True --> Nil) {
         LibXML::Class::Attr::mark-attr-xml( $attr, :$as-xml-element );
     }
 }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

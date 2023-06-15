@@ -288,3 +288,7 @@ method ns-map-type(::?CLASS:D: Mu:U \typeobj, Str :namespace(:$ns) --> NSMapType
 method in-ns-map(::?CLASS:D: LibXML::Element:D $elem --> Bool:D) {
     ? (%!ns-map{$elem.namespaceURI} andthen .{$elem.localName}:exists)
 }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

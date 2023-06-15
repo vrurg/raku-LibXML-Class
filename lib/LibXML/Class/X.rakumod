@@ -514,3 +514,7 @@ my class Trait::NonXMLType does Trait {
             ~ " Consider declaring " ~ $!type.^name ~ " with `is xml-element`."
     }
 }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

@@ -38,3 +38,7 @@ method config-derive is raw { $*LIBXML-CLASS-CONFIG andthen .derive.element }
 method gist {
     self.descriptor-kind ~ " on " ~ $.declarant.^name
 }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

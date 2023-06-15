@@ -42,3 +42,7 @@ method specialize(Mu \obj, Mu \target-class, |) is raw {
 method xml-set-ns-defaults(Mu, $ns) {
     self.xml-set-ns-from-defs($ns)
 }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

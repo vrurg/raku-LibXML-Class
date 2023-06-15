@@ -231,3 +231,7 @@ multi sub mark-attr-xml( Attribute:D $attr,
         $attr-desc.lazify(pkg);
     }
 }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

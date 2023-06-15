@@ -28,3 +28,7 @@ sub brief-node-str(LibXML::Node:D $elem) is export { $elem.canonicalize(:xpath('
 # Keep this an implementation detail
 my atomicint $next-id = -1;
 our sub next-id { ++⚛$next-id }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

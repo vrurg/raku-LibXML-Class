@@ -29,3 +29,7 @@ method build-value-type is raw {
 }
 
 method sigil { $!attr.name.substr(0,1) }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

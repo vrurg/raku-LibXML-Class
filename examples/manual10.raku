@@ -48,7 +48,6 @@ class XSAny is xml-element(
         Itemish, Str, Num, (Int, :attr<value>, :ns(TEST-NS1))
     )) {}
 
-
 my $xs-any = XSAny.new;
 $xs-any.push: 1.234e-2;
 $xs-any.push: "some text";

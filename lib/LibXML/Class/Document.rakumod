@@ -95,3 +95,7 @@ method findnodes(::?CLASS:D: |c) {
 
     $!libxml-document.findnodes(|c).map: { |self.find-deserializations($_) }
 }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

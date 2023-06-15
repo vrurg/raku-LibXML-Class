@@ -122,3 +122,7 @@ method has-serializer(::?CLASS:D:)        { &!serializer.defined }
 method has-deserializer(::?CLASS:D:)      { &!deserializer.defined }
 method serializer-cando(::?CLASS:D: |c)   { (&!serializer andthen .cando(c)) // False }
 method deserializer-cando(::?CLASS:D: |c) { (&!deserializer andthen .cando(c)) // False }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

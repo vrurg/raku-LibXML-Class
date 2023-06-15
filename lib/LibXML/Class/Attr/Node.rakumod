@@ -72,3 +72,7 @@ method lazify(Mu \obj) {
     my $predicate = 'xml-has-' ~ $xml-name;
     &trait_mod:<is>($.attr, :mooish(:$lazy, :$predicate));
 }
+
+# Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
+#
+# See the LICENSE file for the license

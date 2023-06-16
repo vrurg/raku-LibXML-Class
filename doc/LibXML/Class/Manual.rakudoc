@@ -498,7 +498,7 @@ name would use the given I<fubar> name for the method:
 has $.foo is mooish(:lazy<xml-deserialize-attr>, :predicate<xml-has-fubar>) ...;
 =end code
 
-B<NB> Though, to be admittedf, this naming approach is considered somewhat dubious and may change in future versions of
+B<NB> Though, to be admitted, this naming approach is considered somewhat dubious and may change in future versions of
 C<LibXML::Class>. The point behind the current implementation is that when we consider XML serialization we primarily
 speak in terms of XML nodes.
 
@@ -1295,9 +1295,16 @@ Please, submit bugs or pull requests to https://github.com/vrurg/raku-LibXML-Cla
 =head1 SEE ALSO
 
 =item L<I<README>|../../../../README.md>
+
+More technical details and some insights on the implementation can be found in module documentations:
+
 =item L<C<LibXML::Class>|../Class.md>
 =item L<C<LibXML::Class::Config>|Config.md>
 =item L<C<LibXML::Class::Document>|Document.md>
+=item L<C<LibXML::Class::Attr>|Attr.md>
+=item L<C<LibXML::Class::ItemDescriptor>|ItemDescriptor.md>
+=item L<C<LibXML::Class::NS>|NS.md>
+=item L<C<LibXML::Class::Node>|Node.md>
 
 =head1 COPYRIGHT
 

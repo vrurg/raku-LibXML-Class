@@ -106,6 +106,7 @@ no C<$.libxml-document> meaning that the object is not a result of deserializati
 =item L<I<README>|../../../../README.md>
 =item L<C<LibXML::Class::Manual>|Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
+=item L<C<LibXML::Class::XML>|XML.md>
 
 =head1 COPYRIGHT
 

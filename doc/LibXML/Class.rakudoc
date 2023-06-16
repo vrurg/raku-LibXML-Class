@@ -130,6 +130,16 @@ The second step is not clearly localized in time as it might happen when the pro
 never at all) if lazy operations are in effect. Either way, this step is about the I<actual> deserialization from the
 XML source. It takes place individually for every entity like attribute of sequence item.
 
+=head2 Implementation Detail Type Objects
+
+Internally we use a couple of classes and roles that are used to produce an C<xml-element> out of user's type object.
+These must not normally be of any concern. If an XMLized object is to be distinguished from other objects one can
+test it against L<C<LibXML::Class::XML>|Class/XML.md> role.
+
+Yet, on a rare occasion it might be needed to distinguish an XML sequence from a non-sequence. For this purpose it is
+recommended to rely on typechecking against C<LibXML::Class::XMLSequential> role alone. Otherwise no warranties would
+be given with regard to what parents and what roles an C<xml-element> is built of.
+
 =head2 Attributes Of C<xml-element> Class
 
 A few attributes that C<xml-element> trait would introduce onto your XMLized type object that might be useful on
@@ -452,6 +462,7 @@ element.
 
 =item L<I<README>|../../../README.md>
 =item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class::XML>|Class/XML.md>
 
 =head1 COPYRIGHT
 

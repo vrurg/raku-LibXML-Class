@@ -77,6 +77,8 @@ SEE ALSO
 
   * [`LibXML::Class`](../Class.md)
 
+  * [`LibXML::Class::XML`](XML.md)
+
 COPYRIGHT
 =========
 

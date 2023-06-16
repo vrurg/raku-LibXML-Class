@@ -124,6 +124,13 @@ TargetClass.xml-create: |%profile
 
 The second step is not clearly localized in time as it might happen when the profile is being built, or later (up to never at all) if lazy operations are in effect. Either way, this step is about the *actual* deserialization from the XML source. It takes place individually for every entity like attribute of sequence item.
 
+Implementation Detail Type Objects
+----------------------------------
+
+Internally we use a couple of classes and roles that are used to produce an `xml-element` out of user's type object. These must not normally be of any concern. If an XMLized object is to be distinguished from other objects one can test it against [`LibXML::Class::XML`](Class/XML.md) role.
+
+Yet, on a rare occasion it might be needed to distinguish an XML sequence from a non-sequence. For this purpose it is recommended to rely on typechecking against `LibXML::Class::XMLSequential` role alone. Otherwise no warranties would be given with regard to what parents and what roles an `xml-element` is built of.
+
 Attributes Of `xml-element` Class
 ---------------------------------
 
@@ -359,6 +366,8 @@ SEE ALSO
   * [*README*](../../../README.md)
 
   * [`LibXML::Class::Manual`](Class/Manual.md)
+
+  * [`LibXML::Class::XML`](Class/XML.md)
 
 COPYRIGHT
 =========

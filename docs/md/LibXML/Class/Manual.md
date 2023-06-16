@@ -374,7 +374,7 @@ Though, when the XML elment name differs from *foo*, like as if we used `is xml-
 has $.foo is mooish(:lazy<xml-deserialize-attr>, :predicate<xml-has-fubar>) ...;
 ```
 
-**NB** Though, to be admittedf, this naming approach is considered somewhat dubious and may change in future versions of `LibXML::Class`. The point behind the current implementation is that when we consider XML serialization we primarily speak in terms of XML nodes.
+**NB** Though, to be admitted, this naming approach is considered somewhat dubious and may change in future versions of `LibXML::Class`. The point behind the current implementation is that when we consider XML serialization we primarily speak in terms of XML nodes.
 
 ### Deserialization
 
@@ -951,11 +951,21 @@ SEE ALSO
 
   * [*README*](../../../../README.md)
 
+More technical details and some insights on the implementation can be found in module documentations:
+
   * [`LibXML::Class`](../Class.md)
 
   * [`LibXML::Class::Config`](Config.md)
 
   * [`LibXML::Class::Document`](Document.md)
+
+  * [`LibXML::Class::Attr`](Attr.md)
+
+  * [`LibXML::Class::ItemDescriptor`](ItemDescriptor.md)
+
+  * [`LibXML::Class::NS`](NS.md)
+
+  * [`LibXML::Class::Node`](Node.md)
 
 COPYRIGHT
 =========

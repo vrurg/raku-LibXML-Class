@@ -1020,6 +1020,26 @@ a container on its own, as a matter of fact.
 
 Otherwise they way XML:any works for items is no different what how it does for attributes.
 
+=head3 Is Item Deserialized?
+
+Since the sequences are always lazy it may be needed to know if an item has been deserialized alredy or not. In a way,
+this could be done using the C<EXISTS-POS> method on a sequence, or C<:exists> adverb on C<[]>-operator. But there are
+considerations which make this approach not very reliable.
+
+First, an item could be deserialized but later removed with the C<DELETE-POS> method or the C<:delete> adverb. Second,
+a new item could be pushed onto the sequence which hasn't came from deserialization.
+
+Therefore, in addition to the methods, standard for L<C<Array>|https://docs.raku.org/type/Array>, XML sequences
+introduce an additional one: C<HAS-POS>. The method is also backed by the C<:has> adverb on C<[]>:
+
+=begin code :lang<raku>
+$xml-sequence.HAS-POS(1);
+$xml-sequence[1]:has;
+$xml-sequence[1]:!has;
+=end code
+
+The method would report an item as deserialized even if it's been later deleted and C<EXISTS-POS> is reporting I<False>.
+
 =head2 Namespaces
 
 C<LibXML::Class> tries to follow XML rules whenever possible when it comes to namespaces. However, Raku is not XML,

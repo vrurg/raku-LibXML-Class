@@ -761,6 +761,22 @@ XML:any item elements are not getting wrapped into any kind of container, except
 
 Otherwise they way XML:any works for items is no different what how it does for attributes.
 
+### Is Item Deserialized?
+
+Since the sequences are always lazy it may be needed to know if an item has been deserialized alredy or not. In a way, this could be done using the `EXISTS-POS` method on a sequence, or `:exists` adverb on `[]`-operator. But there are considerations which make this approach not very reliable.
+
+First, an item could be deserialized but later removed with the `DELETE-POS` method or the `:delete` adverb. Second, a new item could be pushed onto the sequence which hasn't came from deserialization.
+
+Therefore, in addition to the methods, standard for [`Array`](https://docs.raku.org/type/Array), XML sequences introduce an additional one: `HAS-POS`. The method is also backed by the `:has` adverb on `[]`:
+
+```raku
+$xml-sequence.HAS-POS(1);
+$xml-sequence[1]:has;
+$xml-sequence[1]:!has;
+```
+
+The method would report an item as deserialized even if it's been later deleted and `EXISTS-POS` is reporting *False*.
+
 Namespaces
 ----------
 

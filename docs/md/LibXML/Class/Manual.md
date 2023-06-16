@@ -953,6 +953,10 @@ SEE ALSO
 
   * [`LibXML::Class`](../Class.md)
 
+  * [`LibXML::Class::Config`](Config.md)
+
+  * [`LibXML::Class::Document`](Document.md)
+
 COPYRIGHT
 =========
 

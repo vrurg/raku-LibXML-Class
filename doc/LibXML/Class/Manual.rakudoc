@@ -1294,7 +1294,7 @@ Please, submit bugs or pull requests to https://github.com/vrurg/raku-LibXML-Cla
 
 =head1 SEE ALSO
 
-=item L<I<README>|../../../../README>
+=item L<I<README>|../../../../README.md>
 =item L<C<LibXML::Class>|../Class.md>
 
 =head1 COPYRIGHT

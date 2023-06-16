@@ -26,7 +26,7 @@ Returns I<True> if this attribute is an XML:any. See L<C<LibXML::Class::Manual>|
 
 =head1 SEE ALSO
 
-=item L<I<README>|../../../../README>
+=item L<I<README>|../../../../README.md>
 =item L<C<LibXML::Class::Manual>|Class/Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 =item L<C<LibXML::Class::Attr>|../Attr.md>

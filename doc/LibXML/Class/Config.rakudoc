@@ -206,7 +206,7 @@ L<I<050-sequential.rakutest>|../../../../t/050-sequential.rakutest>.
 
 =head1 SEE ALSO
 
-=item L<I<README>|../../../../README>
+=item L<I<README>|../../../../README.md>
 =item L<C<LibXML::Class::Manual>|Class/Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 

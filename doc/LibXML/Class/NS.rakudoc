@@ -54,7 +54,7 @@ C<LibXML::Class::X::NS::Prefix> exception.
 
 =head1 SEE ALSO
 
-=item L<I<README>|../../../../README>
+=item L<I<README>|../../../../README.md>
 =item L<C<LibXML::Class::Manual>|Class/Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 

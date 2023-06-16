@@ -19,7 +19,7 @@ This module is a container for the following attribute descriptors:
 SEE ALSO
 ========
 
-  * [*README*](../../../../README)
+  * [*README*](../../../../README.md)
 
   * [`LibXML::Class::Manual`](Class/Manual.md)
 

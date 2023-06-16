@@ -20,7 +20,7 @@ method xml-deserialize-element(|) {...}
 SEE ALSO
 ========
 
-  * [*README*](../../../../README)
+  * [*README*](../../../../README.md)
 
   * [`LibXML::Class::Manual`](Class/Manual.md)
 

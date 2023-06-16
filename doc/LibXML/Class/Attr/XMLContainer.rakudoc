@@ -40,7 +40,7 @@ type is used to determine the name and I<Nil> would be returned if the type is a
 
 =head1 SEE ALSO
 
-=item L<I<README>|../../../../README>
+=item L<I<README>|../../../../README.md>
 =item L<C<LibXML::Class::Manual>|Class/Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 =item L<C<LibXML::Class::Attr>|../Attr.md>

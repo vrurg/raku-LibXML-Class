@@ -91,7 +91,7 @@ These methods must be implemented by the actual descriptor classes:
 SEE ALSO
 ========
 
-  * [*README*](../../../../README)
+  * [*README*](../../../../README.md)
 
   * [`LibXML::Class::Manual`](Class/Manual.md)
 

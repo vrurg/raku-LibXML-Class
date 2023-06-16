@@ -9,7 +9,7 @@ Sorry, these are undocumented yet. Other parts of the documentation report what 
 SEE ALSO
 ========
 
-  * [*README*](../../../../README)
+  * [*README*](../../../../README.md)
 
   * [`LibXML::Class::Manual`](Class/Manual.md)
 

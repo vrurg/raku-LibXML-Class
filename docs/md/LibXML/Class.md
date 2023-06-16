@@ -356,7 +356,7 @@ Cloning a deserialized object isn't a trivial task, especiall when lazy operatio
 SEE ALSO
 ========
 
-  * [*README*](../../../../README)
+  * [*README*](../../../../README.md)
 
   * [`LibXML::Class::Manual`](Class/Manual.md)
 

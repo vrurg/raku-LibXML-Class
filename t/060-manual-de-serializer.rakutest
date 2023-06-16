@@ -99,7 +99,7 @@ subtest "Sequence" => {
     proto sub deserialize-si(|) {*}
     multi sub deserialize-si(LibXML::Element:D $elem) {
         # This would also test for xml-I-cant since if it fails in a way then the resulting AST would differ.
-        xml-I-cant unless $elem.localName eq 'si';
+        xml-I-cant unless $elem.localName eq 'si' && $elem.hasAttribute('ord');
         SItem.new: order => $elem.getAttribute('ord').Num.Int
     }
     multi sub deserialize-si(Str:D $val) {
@@ -108,6 +108,7 @@ subtest "Sequence" => {
 
     my proto sub serialize-si(|) {*}
     multi sub serialize-si(LibXML::Element:D $ielem, SItem:D $value) {
+        xml-I-cant if $value.order == 5;
         $ielem.setAttribute: "ord", $value.order.Num.fmt('%.2e')
     }
     multi sub serialize-si(Version:D $v) {
@@ -129,7 +130,7 @@ subtest "Sequence" => {
     }
 
     my $serialized = $xs.to-xml;
-    my $expected = "#xml" => [:XMLSeq([:si([:ord("0.00e+00")]), :ver(["v0.0"]), :si([:ord("1.00e+00")]), :si([:ord("2.00e+00")]), :si([:ord("3.00e+00")]), :ver(["v3.1"]), :si([:ord("4.00e+00")]), :si([:ord("5.00e+00")]), :si([:ord("6.00e+00")]), :ver(["v6.2"]), :si([:ord("7.00e+00")]), :si([:ord("8.00e+00")]), :si([:ord("9.00e+00")]), :ver(["v9.3"])])];
+    my $expected = "#xml" => [:XMLSeq([:si([:ord("0.00e+00")]), :ver(["v0.0"]), :si([:ord("1.00e+00")]), :si([:ord("2.00e+00")]), :si([:ord("3.00e+00")]), :ver(["v3.1"]), :si([:ord("4.00e+00")]), :si([:order("5")]), :si([:ord("6.00e+00")]), :ver(["v6.2"]), :si([:ord("7.00e+00")]), :si([:ord("8.00e+00")]), :si([:ord("9.00e+00")]), :ver(["v9.3"])])];
     cmp-deeply $serialized.ast, $expected, "serialized OK";
 
     my $deserialized = XMLSeq.from-xml: $serialized.Str;

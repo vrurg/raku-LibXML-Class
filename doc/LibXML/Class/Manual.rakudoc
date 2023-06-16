@@ -109,7 +109,7 @@ This term has its roots in I<.xsd> schemas of
 L<ECMA-376|https://www.ecma-international.org/publications-and-standards/standards/ecma-376> standard. A sequential XML
 element is a L<C<Positional>|https://docs.raku.org/type/Positional> (in terms of Raku) container. For example:
 
-=begin code :lang<raku>
+=begin code :lang<xml>
 <my-seq>
   <rec1>val1</rec1>      <!-- #0 -->
   <rec2 value="foo1" />  <!-- #1 -->
@@ -133,7 +133,7 @@ B<XML container>, B<XML containerization>
 
 It is the XML element wrapped around a value element, or series of elements. For example:
 
-=begin code :lang<raku>
+=begin code :lang<xml>
 <container>
    <val-element>42</val-element>
 </container>
@@ -387,12 +387,12 @@ class Foo is xml-element(:implicit) {
 In this example both attributes would get serialized if set. But C<$.foo> would become an XML attribute, and C<$.bar>
 would be an XML element (see L<I<manual04.raku>|../../../../examples/manual04.raku>):
 
-=begin output
+=begin code :lang<xml>
 <?xml version="1.0" encoding="UTF-8"?>
 <Foo foo="42">
   <bar>textual value</bar>
 </Foo>
-=end output
+=end code
 
 =head2 Document Object
 
@@ -687,7 +687,7 @@ Before going into greater details, let's borrow an example from
 L<C<XML::Class>|https://modules.raku.org/dist/XML::Class>, where they use SOAP envelope to demonstrate the problem and
 its solutions:
 
-=begin code :lang<raku>
+=begin code :lang<xml>
 <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
     <Head/>
     <Body>
@@ -712,7 +712,7 @@ of our XML is not a container – it is the attribute. But the value of it is co
 
 What if C«<Body>» is a sequence? Then it is possible to see something like the following:
 
-=begin code :lang<raku>
+=begin code :lang<xml>
 <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
     <Head/>
     <Body>
@@ -772,7 +772,7 @@ class Record is xml-element( :ns( :pfx<my-ns> ) ) {
 
 whenever the value in C<$.attr> happens to be an instance of C<Foo>, the attribute would serialize into something like:
 
-=begin code :lang<raku>
+=begin code :lang<xml>
 <pfx:attr><pfx:foo /></pfx:attr>
 =end code
 
@@ -879,7 +879,7 @@ can individually configure namespace parameters, serializer, and deserializer.
 XML sequences can contain non-item elements too. From the Raku language point of view it means they can have
 serializable attributes:
 
-=begin code :lang<raku>
+=begin code :lang<xml>
 <my-seq>
   <rec1>val1</rec1>
   <rec2 value="foo1" />
@@ -918,7 +918,7 @@ $refs.push: 987654;
 
 It serializes into:
 
-=begin code :lang<raku>
+=begin code :lang<xml>
 <References title="An Article">
   <idx>123456</idx>
   <ref title="3rd Party Article"/>

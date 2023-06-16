@@ -621,12 +621,27 @@ Apparently, deserializer must return a value for the attribute.
 
 =head3 Common Notes On De-/Serializing
 
-It is to be remembered that C<LibXML::Class> doesn't produce an error if no serializer matches. Instead, if provided
-serializer cannot be used then we fall back to the standrd means. This behaviour could become handy when, say, we know
-that an instance of a subclass could end up in our attribute and special care would need to be taken of it.  Otherwise
-the standard approach would work well enough for us and there is no need to be explicit about it.
+It is to be remembered that C<LibXML::Class> doesn't produce an error if no serializer signature matches. Instead, if
+provided serializer cannot be used then we fall back to the standrd means. This behaviour could become handy when, say,
+we know that an instance of a subclass could end up in our attribute and special care would need to be taken of it then.
+Otherwise the standard approach would work well enough for us and there is no need to be explicit about it.
 
 Same rule apply to deserializer: no error if no candidate found.
+
+There are good chances that sometimes inability to de-/serialize something is becomes apparent at run time. At this
+point user code may decide that it'd be better to give up and let C<LibXML::Class> do it. It is possible with an
+exported C<xml-I-cant> routine:
+
+=begin code :lang<raku>
+sub my-serializer(Foo:D $value) {
+    if $value.has-attribute {
+        xml-I-cant
+    }
+    $value.serialize-itself;
+}
+=end code
+
+There is a test for it in L<I<t/060-manual-de-serializer.rakutest>|../../../../t/t/060-manual-de-serializer.rakutest>.
 
 =head2 Implicit XMLization
 

@@ -75,7 +75,7 @@ Some Terminology
 
     This term has its roots in *.xsd* schemas of [ECMA-376](https://www.ecma-international.org/publications-and-standards/standards/ecma-376) standard. A sequential XML element is a [`Positional`](https://docs.raku.org/type/Positional) (in terms of Raku) container. For example:
 
-    ```raku
+    ```xml
     <my-seq>
       <rec1>val1</rec1>      <!-- #0 -->
       <rec2 value="foo1" />  <!-- #1 -->
@@ -93,7 +93,7 @@ Some Terminology
 
     It is the XML element wrapped around a value element, or series of elements. For example:
 
-    ```raku
+    ```xml
     <container>
        <val-element>42</val-element>
     </container>
@@ -288,10 +288,12 @@ class Foo is xml-element(:implicit) {
 
 In this example both attributes would get serialized if set. But `$.foo` would become an XML attribute, and `$.bar` would be an XML element (see [*manual04.raku*](../../../../examples/manual04.raku)):
 
-    <?xml version="1.0" encoding="UTF-8"?>
-    <Foo foo="42">
-      <bar>textual value</bar>
-    </Foo>
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Foo foo="42">
+  <bar>textual value</bar>
+</Foo>
+```
 
 Document Object
 ---------------
@@ -444,9 +446,22 @@ Apparently, deserializer must return a value for the attribute.
 
 ### Common Notes On De-/Serializing
 
-It is to be remembered that `LibXML::Class` doesn't produce an error if no serializer matches. Instead, if provided serializer cannot be used then we fall back to the standrd means. This behaviour could become handy when, say, we know that an instance of a subclass could end up in our attribute and special care would need to be taken of it. Otherwise the standard approach would work well enough for us and there is no need to be explicit about it.
+It is to be remembered that `LibXML::Class` doesn't produce an error if no serializer signature matches. Instead, if provided serializer cannot be used then we fall back to the standrd means. This behaviour could become handy when, say, we know that an instance of a subclass could end up in our attribute and special care would need to be taken of it then. Otherwise the standard approach would work well enough for us and there is no need to be explicit about it.
 
 Same rule apply to deserializer: no error if no candidate found.
+
+There are good chances that sometimes inability to de-/serialize something is becomes apparent at run time. At this point user code may decide that it'd be better to give up and let `LibXML::Class` do it. It is possible with an exported `xml-I-cant` routine:
+
+```raku
+sub my-serializer(Foo:D $value) {
+    if $value.has-attribute {
+        xml-I-cant
+    }
+    $value.serialize-itself;
+}
+```
+
+There is a test for it in [*t/060-manual-de-serializer.rakutest*](../../../../t/t/060-manual-de-serializer.rakutest).
 
 Implicit XMLization
 -------------------
@@ -487,7 +502,7 @@ Sometimes it is not possible to tell what would be a value type beforehand. Like
 
 XML:any tries to solve this problem by implementing a mapping between Raku type objects and XML tags, using namespaces. Before going into greater details, let's borrow an example from [`XML::Class`](https://modules.raku.org/dist/XML::Class), where they use SOAP envelope to demonstrate the problem and its solutions:
 
-```raku
+```xml
 <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
     <Head/>
     <Body>
@@ -511,7 +526,7 @@ Clearly, neither `Head` nor `Body` have types associated to them. More important
 
 What if `<Body>` is a sequence? Then it is possible to see something like the following:
 
-```raku
+```xml
 <Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/">
     <Head/>
     <Body>
@@ -568,7 +583,7 @@ class Record is xml-element( :ns( :pfx<my-ns> ) ) {
 
 whenever the value in `$.attr` happens to be an instance of `Foo`, the attribute would serialize into something like:
 
-```raku
+```xml
 <pfx:attr><pfx:foo /></pfx:attr>
 ```
 
@@ -646,7 +661,7 @@ At the first glance, XML sequence (later in this section the term would often be
 
   * XML sequences can contain non-item elements too. From the Raku language point of view it means they can have serializable attributes:
 
-    ```raku
+    ```xml
     <my-seq>
       <rec1>val1</rec1>
       <rec2 value="foo1" />
@@ -680,7 +695,7 @@ $refs.push: 987654;
 
 It serializes into:
 
-```raku
+```xml
 <References title="An Article">
   <idx>123456</idx>
   <ref title="3rd Party Article"/>

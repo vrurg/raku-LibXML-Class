@@ -4,7 +4,7 @@
 DISCLAIMERS
 -----------
 
-  * [`LibXML::Class`](docs/md/LibXML/Class.md) is not capable of handling every possible variation of XML files. Despite all the efforts taken to cover as many possible cases as possible, serializing of Raku objects into XML is and likely will remain its primary purpose. And yet the module is expected to be capable of properly deserializing many different formats into Raku.
+  * [`LibXML::Class`](../Class.md) is not capable of handling every possible variation of XML files. Despite all the efforts taken to cover as many possible cases as possible, serializing of Raku objects into XML is and likely will remain its primary purpose. And yet the module is expected to be capable of properly deserializing many different formats into Raku.
 
   * Due to its extensive nature, this manual is created in mainly write-only mode, with very limited proof-reading and other time-consuming luxuries. My deepest apologies for all the errors, but the priorities don't give me many choices.
 

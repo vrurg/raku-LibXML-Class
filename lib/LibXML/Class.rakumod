@@ -2105,9 +2105,9 @@ BEGIN {
     sub xml-I-cant(--> Nil) is export { LibXML::Class::CX::Cannot.new.throw }
 }
 
-    multi sub postcircumfix:<[ ]>(XMLSequence:D \XMLSEQ, Any:D $pos, Bool:D :$has!) is raw is export {
-        XMLSEQ.HAS-POS($pos, :$has)
-    }
+multi sub postcircumfix:<[ ]>(XMLSequence:D \XMLSEQ, Any:D $pos, Bool:D :$has!) is raw is export {
+    XMLSEQ.HAS-POS($pos, :$has)
+}
 
 our sub META6 {
     $?DISTRIBUTION.meta

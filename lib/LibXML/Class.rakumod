@@ -1,5 +1,5 @@
 use v6.e.PREVIEW;
-unit module LibXML::Class:ver($?DISTRIBUTION.meta<ver>):auth<zef:vrurg>:api($?DISTRIBUTION.meta<api>);
+unit module LibXML::Class:ver($?DISTRIBUTION.meta<ver>):auth($?DISTRIBUTION.meta<auth>):api($?DISTRIBUTION.meta<api>);
 use nqp;
 use experimental :will-complain;
 

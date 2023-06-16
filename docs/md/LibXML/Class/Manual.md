@@ -949,7 +949,7 @@ Please, submit bugs or pull requests to https://github.com/vrurg/raku-LibXML-Cla
 SEE ALSO
 ========
 
-  * [*README*](../../../../README)
+  * [*README*](../../../../README.md)
 
   * [`LibXML::Class`](../Class.md)
 

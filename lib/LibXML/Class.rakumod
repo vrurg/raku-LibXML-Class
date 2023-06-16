@@ -548,6 +548,53 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML does LibXML::Cl
         ~val
     }
 
+    proto method xml-try-serializer(::?CLASS:D: |) {*}
+    multi method xml-try-serializer( ::?CLASS:D:
+                                     LibXML::Class::Descriptor:D $desc,
+                                     Mu \value,
+                                     &fallback
+                                     --> Mu ) is raw
+    {
+        self.xml-try-deserializer: $desc, \(value), &fallback
+    }
+    multi method xml-try-serializer( ::?CLASS:D:
+                                     LibXML::Class::Descriptor:D $desc,
+                                     LibXML::Node:D \xml-node,
+                                     Mu \value,
+                                     &fallback
+                                     --> Mu ) is raw
+    {
+        self.xml-try-deserializer: $desc, \( xml-node, value ), &fallback
+    }
+    multi method xml-try-serializer( ::?CLASS:D:
+                               LibXML::Class::Descriptor:D $desc,
+                               Capture:D \serializer-args,
+                               &fallback
+                               --> Mu ) is raw
+    {
+        my Mu $rc;
+        my $use-fallback = True;
+
+        if $desc.serializer-cando(serializer-args) {
+            # Whatever happens now we must not use fallback except when $desc.serializer explicitly calls xml-I-cant
+            $use-fallback = False;
+
+            $rc := try {
+                CATCH { default { return .Failure } }
+                CONTROL {
+                    when LibXML::Class::CX::Cannot {
+                        # User code chosen not to serialize.
+                        $use-fallback = True;
+                    }
+                    default { .rethrow }
+                }
+                $desc.serializer.(|serializer-args)
+            }
+        }
+
+        $use-fallback ?? &fallback() !! $rc
+    }
+
     my subset DeserializableSource of Any where LibXML::Node | Str;
 
     method xml-try-deserializer( LibXML::Class::Descriptor:D $desc,
@@ -974,25 +1021,18 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML does LibXML::Cl
 
     # Serialize a value based on attribute meta data.
     method xml-ser-desc-value(LibXML::Class::Descriptor:D $desc, Mu $value is raw --> Str:D) {
-        ($desc.serializer andthen .cando($value))
-            ?? $desc.serializer.($value)
-            !! self.xml-type-to-str($value)
+        self.xml-try-serializer: $desc, \($value), { self.xml-type-to-str($value) }
     }
 
     method xml-ser-desc-val2elem(LibXML::Element:D $velem, LibXML::Class::Descriptor:D $desc, Mu $value) {
         my $*LIBXML-CLASS-ELEMENT = $velem;
 
-        if ($desc.serializer andthen .cando($velem, $value)) {
-            $desc.serializer.($velem, $value);
-        }
-        else {
+        self.xml-try-serializer: $desc, \($velem, $value), {
             if $desc.value-attr -> $xml-aname {
                 # Attribute value is to be kept in XML element attribute
                 $velem.setAttribute($xml-aname, self.xml-ser-desc-value($desc, $value))
             }
-            elsif !($desc.serializer andthen $desc.serializer.cando($value))
-                && ($value ~~ XMLRepresentation || $value !~~ BasicType)
-            {
+            elsif !$desc.serializer-cando($value) && ($value ~~ XMLRepresentation || $value !~~ BasicType) {
                 my $cvalue = $value;
                 unless $cvalue ~~ XMLRepresentation {
                     # Turn a basic class into an XMLRepresentation with implicit flag raised
@@ -1085,13 +1125,11 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML does LibXML::Cl
                 ?? self.xml-create-child-element($node, $desc, :name($desc.container-name), :$namespace, :$prefix)
                 !! $node;
 
-        if ($desc.serializer andthen .cando($celem, attr-values)) {
-            $desc.serializer.($celem, attr-values);
-        }
-        else {
+        self.xml-try-serializer: $desc, \($celem, attr-values), {
             for attr-values<> -> $avalue {
                 my $velem =
-                    self.xml-create-child-element($celem, $desc, :name($desc.value-name($avalue)), :$namespace, :$prefix);
+                    self.xml-create-child-element:
+                        $celem, $desc, :name($desc.value-name($avalue)), :$namespace, :$prefix;
                 self.xml-ser-attr-val2elem: $velem, $desc, $avalue;
             }
         }
@@ -1109,10 +1147,7 @@ class XMLObject does LibXML::Class::Node does LibXML::Class::XML does LibXML::Cl
 
         $desc.xml-apply-ns($celem, :$namespace, :$prefix);
 
-        if ($desc.serializer andthen .cando($celem, attr-values)) {
-            $desc.serializer.($celem, attr-values);
-        }
-        else {
+        self.xml-try-serializer: $desc, \($celem, attr-values), {
             for attr-values.sort -> (:key($vname), :$value) {
                 my LibXML::Element:D $velem =
                     self.xml-create-child-element($celem, $desc, :name($vname), :$namespace, :$prefix);

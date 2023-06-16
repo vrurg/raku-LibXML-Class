@@ -118,10 +118,16 @@ method type-check(Mu \value, $when --> Mu) is raw {
     value
 }
 
-method has-serializer(::?CLASS:D:)        { &!serializer.defined }
-method has-deserializer(::?CLASS:D:)      { &!deserializer.defined }
-method serializer-cando(::?CLASS:D: |c)   { (&!serializer andthen .cando(c)) // False }
-method deserializer-cando(::?CLASS:D: |c) { (&!deserializer andthen .cando(c)) // False }
+method has-serializer(::?CLASS:D:)                        { &!serializer.defined }
+method has-deserializer(::?CLASS:D:)                      { &!deserializer.defined }
+
+proto method serializer-cando(::?CLASS:D: |)              {*}
+multi method serializer-cando(::?CLASS:D: Capture:D \c)   { (&!serializer andthen .cando(c)).so // False }
+multi method serializer-cando(::?CLASS:D: |c)             { (&!serializer andthen .cando(c)).so // False }
+
+proto method deserializer-cando(::?CLASS:D: |)            {*}
+multi method deserializer-cando(::?CLASS:D: Capture:D \c) { (&!deserializer andthen .cando(c)).so // False }
+multi method deserializer-cando(::?CLASS:D: |c)           { (&!deserializer andthen .cando(c)).so // False }
 
 # Copyright (c) 2023, Vadim Belman <vrurg@cpan.org>
 #

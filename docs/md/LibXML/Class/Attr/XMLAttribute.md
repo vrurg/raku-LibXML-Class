@@ -9,7 +9,7 @@ Consumes [`LibXML::Class::Attr::Node`](Node.md).
 SEE ALSO
 ========
 
-  * [*README*](../../../../README.md)
+  * [*README*](../../../../../README.md)
 
   * [`LibXML::Class::Manual`](Class/Manual.md)
 

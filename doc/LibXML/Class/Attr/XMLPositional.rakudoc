@@ -12,7 +12,7 @@ This descriptor doesn't provide any extra functionality and is only used for dec
 
 =head1 SEE ALSO
 
-=item L<I<README>|../../../../README.md>
+=item L<I<README>|../../../../../README.md>
 =item L<C<LibXML::Class::Manual>|Class/Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 

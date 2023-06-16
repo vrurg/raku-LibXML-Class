@@ -13,7 +13,7 @@ This descriptor doesn't provide any extra functionality and is only used for dec
 SEE ALSO
 ========
 
-  * [*README*](../../../../README.md)
+  * [*README*](../../../../../README.md)
 
   * [`LibXML::Class::Manual`](Class/Manual.md)
 

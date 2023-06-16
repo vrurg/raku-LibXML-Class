@@ -31,7 +31,7 @@ Methods
 SEE ALSO
 ========
 
-  * [*README*](../../../../README.md)
+  * [*README*](../../../../../README.md)
 
   * [`LibXML::Class::Manual`](Class/Manual.md)
 

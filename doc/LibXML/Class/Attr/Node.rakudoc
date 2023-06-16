@@ -7,7 +7,7 @@ This role consumes L<C<LibXML::Class::Attr::XMLish>|XMLish.md> and L<C<LibXML::C
 
 =head1 SEE ALSO
 
-=item L<I<README>|../../../../README.md>
+=item L<I<README>|../../../../../README.md>
 =item L<C<LibXML::Class::Manual>|Class/Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 

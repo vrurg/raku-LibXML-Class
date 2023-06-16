@@ -450,7 +450,7 @@ element.
 
 =head1 SEE ALSO
 
-=item L<I<README>|../../../../README.md>
+=item L<I<README>|../../../README.md>
 =item L<C<LibXML::Class::Manual>|Class/Manual.md>
 
 =head1 COPYRIGHT

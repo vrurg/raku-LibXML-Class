@@ -19,7 +19,7 @@ method xml-deserialize-element(|) {...}
 =head1 SEE ALSO
 
 =item L<I<README>|../../../../README.md>
-=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class::Manual>|Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 
 =head1 COPYRIGHT

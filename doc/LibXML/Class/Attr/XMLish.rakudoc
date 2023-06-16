@@ -53,8 +53,8 @@ Return the most concise description of attribute descriptor. For example, I<"val
 =head1 SEE ALSO
 
 =item L<I<README>|../../../../../README.md>
-=item L<C<LibXML::Class::Manual>|Class/Manual.md>
-=item L<C<LibXML::Class>|../Class.md>
+=item L<C<LibXML::Class::Manual>|../Manual.md>
+=item L<C<LibXML::Class>|../../Class.md>
 =item L<C<LibXML::Class::Attr>|../Attr.md>
 
 =head1 COPYRIGHT

@@ -4,13 +4,13 @@ C<LibXML::Class::X> - collection of C<LibXML::Class> exceptions
 =head1 DESCRIPTION
 
 Sorry, these are undocumented yet. Other parts of the documentation report what exceptions can be thrown whenever
-possible. Otherwise, take a look into L<C<LibXML::Class::X>|../../../../lib/LibXML/Class/X.rakumod> to find
+possible. Otherwise, take a look into L<C<LibXML::Class::X>|X.md> to find
 out more.
 
 =head1 SEE ALSO
 
 =item L<I<README>|../../../../README.md>
-=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class::Manual>|Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 
 =head1 COPYRIGHT

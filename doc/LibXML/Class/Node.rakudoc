@@ -55,7 +55,7 @@ unconditionally. Resolved prefix gets added to the element too.
 =head1 SEE ALSO
 
 =item L<I<README>|../../../../README.md>
-=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class::Manual>|Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 =item L<C<LibXML::Class::NS>|NS.md>
 

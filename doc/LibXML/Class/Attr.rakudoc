@@ -14,7 +14,7 @@ This module is a container for the following attribute descriptors:
 =head1 SEE ALSO
 
 =item L<I<README>|../../../../README.md>
-=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class::Manual>|Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 =item L<C<LibXML::Class::Attr::XMLish>|Attr/XMLish.md>
 

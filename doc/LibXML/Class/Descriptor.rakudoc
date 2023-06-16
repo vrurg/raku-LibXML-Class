@@ -126,7 +126,7 @@ stringifiable value is too expensive and only worth doing at the moment when the
 =head1 SEE ALSO
 
 =item L<I<README>|../../../../README.md>
-=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class::Manual>|Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 =item L<C<LibXML::Class::Config>|Config.md>
 

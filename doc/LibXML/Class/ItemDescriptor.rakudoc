@@ -22,7 +22,7 @@ If the item serializes into an XML attribute then this is attribute's name.
 =head1 SEE ALSO
 
 =item L<I<README>|../../../../README.md>
-=item L<C<LibXML::Class::Manual>|Class/Manual.md>
+=item L<C<LibXML::Class::Manual>|Manual.md>
 =item L<C<LibXML::Class>|../Class.md>
 =item L<C<LibXML::Class::Descriptor>|Descriptor.md>
 

@@ -44,9 +44,9 @@ SEE ALSO
 
   * [*README*](../../../../../README.md)
 
-  * [`LibXML::Class::Manual`](Class/Manual.md)
+  * [`LibXML::Class::Manual`](../Manual.md)
 
-  * [`LibXML::Class`](../Class.md)
+  * [`LibXML::Class`](../../Class.md)
 
   * [`LibXML::Class::Attr`](../Attr.md)
 

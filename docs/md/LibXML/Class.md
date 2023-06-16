@@ -329,6 +329,25 @@ Sequence types provide basic methods one would expect for [`Positional`](https:/
 
     Returns deserialized value.
 
+Exports
+-------
+
+### Traits
+
+This module exports the following traits:
+
+  * `is xml-element`
+
+  * `is xml-attribute`
+
+  * `is xml-text`
+
+They're documented in [`LibXML::Class::Manual`](Class/Manual.md).
+
+### `xml-I-cant`
+
+This is just a shortcut for throwing a control exception which causes user-provided de-/serializer code to give up and let the module do the job. See more details in the [`Manual`](Class/Manual.md).
+
 Cloning
 -------
 

@@ -424,6 +424,23 @@ position in the sequence.
 Returns deserialized value.
 =end item
 
+=head2 Exports
+
+=head3 Traits
+
+This module exports the following traits:
+
+=item C<is xml-element>
+=item C<is xml-attribute>
+=item C<is xml-text>
+
+They're documented in L<C<LibXML::Class::Manual>|Class/Manual.md>.
+
+=head3 C<xml-I-cant>
+
+This is just a shortcut for throwing a control exception which causes user-provided de-/serializer code to give up
+and let the module do the job. See more details in the L<C<Manual>|Class/Manual.md>.
+
 =head2 Cloning
 
 Cloning a deserialized object isn't a trivial task, especiall when lazy operations are in effect. A custom C<clone>

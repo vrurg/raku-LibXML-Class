@@ -42,6 +42,6 @@
   },
   "resources": [],
   "license": "Artistic-2.0",
-  "source-url": "Write me!",
-  "raku": "6.*"
+  "source-url": "https://github.com/vrurg/raku-LibXML-Class",
+  "raku": "6.e.PREVIEW"
 }
